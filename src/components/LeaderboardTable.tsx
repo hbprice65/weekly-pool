@@ -2,7 +2,7 @@
 
 import React from "react";
 import { LeaderboardEntry } from "@/types";
-import { Trophy, Award, TrendingUp } from "lucide-react";
+import { Trophy, TrendingUp } from "lucide-react";
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
@@ -144,3 +144,4 @@ export function LeaderboardTable({
     </div>
   );
 }
+

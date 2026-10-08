@@ -181,3 +181,4 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
     rank: 6,
   },
 ];
+

@@ -75,3 +75,4 @@ export interface LeaderboardEntry {
   rank: number;
   tiebreakerDiff?: number;
 }
+

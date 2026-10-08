@@ -18,35 +18,37 @@ export default function Home() {
 
   // Load saved picks from localStorage if available
   useEffect(() => {
-    const saved = localStorage.getItem("nfl_weekly_picks_week_6");
-    if (saved) {
-      try {
-        setUserPicks(JSON.parse(saved));
-      } catch {
-        // Fallback to default
+    queueMicrotask(() => {
+      const saved = localStorage.getItem("nfl_weekly_picks_week_6");
+      if (saved) {
+        try {
+          setUserPicks(JSON.parse(saved));
+        } catch {
+          // Fallback to default
+        }
+      } else {
+        // Default initial mock picks for demonstration
+        setUserPicks({
+          g1: "SF",
+          g3: "BAL",
+          g4: "HOU",
+          g7: "DET",
+        });
       }
-    } else {
-      // Default initial mock picks for demonstration
-      setUserPicks({
-        g1: "SF",
-        g3: "BAL",
-        g4: "HOU",
-        g7: "DET",
-      });
-    }
 
-    const savedMnf = localStorage.getItem("nfl_weekly_mnf_week_6");
-    if (savedMnf) {
-      setMnfPrediction(savedMnf);
-    }
+      const savedMnf = localStorage.getItem("nfl_weekly_mnf_week_6");
+      if (savedMnf) {
+        setMnfPrediction(savedMnf);
+      }
 
-    // Check if Supabase keys are configured in environment
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://your-project.supabase.co"
-    ) {
-      setIsSupabaseConfigured(true);
-    }
+      // Check if Supabase keys are configured in environment
+      if (
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://your-project.supabase.co"
+      ) {
+        setIsSupabaseConfigured(true);
+      }
+    });
   }, []);
 
   const handleSelectPick = (gameId: string, teamId: string) => {

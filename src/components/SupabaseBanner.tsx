@@ -116,3 +116,4 @@ export function SupabaseBanner({ isConfigured }: SupabaseBannerProps) {
     </div>
   );
 }
+

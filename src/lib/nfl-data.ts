@@ -322,3 +322,4 @@ export const NFL_TEAMS: Record<string, NFLTeam> = {
     secondaryColor: "#FFB612",
   },
 };
+
