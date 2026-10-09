@@ -1,31 +1,81 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Navbar } from "@/components/Navbar";
 import { GameCard } from "@/components/GameCard";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
 import { RulesCard } from "@/components/RulesCard";
+import { AuthModal } from "@/components/AuthModal";
 import { MOCK_WEEK, MOCK_LEADERBOARD, MOCK_USER } from "@/lib/mock-data";
-import { CheckCircle2, Save, Calendar, Clock, Trophy, Minus, Plus } from "lucide-react";
+import {
+  getCurrentUser,
+  fetchUserPicksFromSupabase,
+  saveUserPicksToSupabase,
+} from "@/lib/supabase/picks-service";
+import {
+  CheckCircle2,
+  Save,
+  Calendar,
+  Clock,
+  Trophy,
+  Minus,
+  Plus,
+  CloudCheck,
+  AlertCircle,
+  Loader2,
+  LogIn,
+} from "lucide-react";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"picks" | "leaderboard" | "rules">("picks");
   const [userPicks, setUserPicks] = useState<Record<string, string>>({});
   const [mnfPrediction, setMnfPrediction] = useState<string>("47");
-  const [isSaved, setIsSaved] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<{
+    type: "success" | "info" | "error";
+    message: string;
+  } | null>(null);
 
-  // Load saved picks from localStorage if available
-  useEffect(() => {
-    queueMicrotask(() => {
+  // Authentication & Supabase state
+  const [currentUser, setCurrentUser] = useState<{ id: string; email?: string } | null>(null);
+  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+
+  // Load user session and their saved picks
+  const loadUserAndPicks = useCallback(async () => {
+    const user = await getCurrentUser();
+    if (user) {
+      setCurrentUser({ id: user.id, email: user.email });
+
+      // Fetch saved picks from Supabase for this user
+      const { picks, mnfScore } = await fetchUserPicksFromSupabase(user.id);
+      if (Object.keys(picks).length > 0) {
+        setUserPicks(picks);
+      } else {
+        // Fallback to localStorage if Supabase has no picks yet for this user
+        const local = localStorage.getItem(`nfl_picks_${user.id}`);
+        if (local) {
+          try {
+            setUserPicks(JSON.parse(local));
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      if (mnfScore) {
+        setMnfPrediction(mnfScore);
+      }
+    } else {
+      setCurrentUser(null);
+      // Fallback: load demo/guest picks from localStorage
       const saved = localStorage.getItem("nfl_weekly_picks_week_6");
       if (saved) {
         try {
           setUserPicks(JSON.parse(saved));
         } catch {
-          // Fallback to default
+          // ignore
         }
       } else {
-        // Default initial picks for demonstration
         setUserPicks({
           g1: "SF",
           g3: "BAL",
@@ -38,37 +88,83 @@ export default function Home() {
       if (savedMnf) {
         setMnfPrediction(savedMnf);
       }
-    });
+    }
   }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      loadUserAndPicks();
+    });
+  }, [loadUserAndPicks]);
 
   const handleSelectPick = (gameId: string, teamId: string) => {
     setUserPicks((prev) => {
       const updated = { ...prev, [gameId]: teamId };
       return updated;
     });
-    setIsSaved(false);
+    setSaveStatus(null);
   };
 
-  const handleSavePicks = () => {
-    localStorage.setItem("nfl_weekly_picks_week_6", JSON.stringify(userPicks));
+  const handleSavePicks = async () => {
+    setIsSaving(true);
+    setSaveStatus(null);
+
+    // Always cache locally in browser storage
+    const storageKey = currentUser
+      ? `nfl_picks_${currentUser.id}`
+      : "nfl_weekly_picks_week_6";
+    localStorage.setItem(storageKey, JSON.stringify(userPicks));
     localStorage.setItem("nfl_weekly_mnf_week_6", mnfPrediction);
-    setIsSaved(true);
+
+    // If user is authenticated with Supabase, persist to database
+    if (currentUser) {
+      const res = await saveUserPicksToSupabase(
+        currentUser.id,
+        userPicks,
+        mnfPrediction
+      );
+
+      if (res.success) {
+        setSaveStatus({
+          type: "success",
+          message: `Picks saved to Supabase for ${currentUser.email || "user"}!`,
+        });
+      } else {
+        setSaveStatus({
+          type: "error",
+          message: `Saved locally. Supabase sync notice: ${res.error || "Check database games"}.`,
+        });
+      }
+    } else {
+      setSaveStatus({
+        type: "info",
+        message: "Picks saved locally! Sign in to sync your picks to Supabase across devices.",
+      });
+    }
+
+    setIsSaving(false);
+
+    // Auto-dismiss notification after 5 seconds
     setTimeout(() => {
-      setIsSaved(false);
-    }, 4000);
+      setSaveStatus(null);
+    }, 5000);
   };
 
   const handleStepMnf = (delta: number) => {
     const current = parseInt(mnfPrediction, 10) || 45;
     const nextVal = Math.max(0, Math.min(120, current + delta));
     setMnfPrediction(String(nextVal));
-    setIsSaved(false);
+    setSaveStatus(null);
   };
 
   const totalGames = MOCK_WEEK.games.length;
   const pickedCount = Object.keys(userPicks).length;
   const allPicksMade = pickedCount === totalGames;
   const progressPercent = Math.round((pickedCount / totalGames) * 100);
+
+  const displayName = currentUser?.email
+    ? currentUser.email.split("@")[0]
+    : MOCK_USER.displayName;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-black">
@@ -77,13 +173,50 @@ export default function Home() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         selectedWeek={MOCK_WEEK.weekNumber}
-        userName={MOCK_USER.displayName}
+        userName={displayName}
         userPoints={MOCK_USER.totalPoints}
         userRank={MOCK_USER.seasonRank}
+        isAuthenticated={!!currentUser}
+        onOpenAuth={() => setIsAuthOpen(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 pb-24 sm:pb-12">
-        {/* Pool Summary Stats Bar - 2 cols on mobile, 4 on tablet/desktop */}
+        {/* Supabase User Cloud Status Banner (Subtle and informative) */}
+        {currentUser ? (
+          <div className="bg-emerald-950/30 border border-emerald-800/40 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-emerald-300">
+            <div className="flex items-center space-x-2">
+              <CloudCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>
+                Connected to Supabase as <strong>{currentUser.email}</strong> • Picks save to your account
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAuthOpen(true)}
+              className="text-[11px] text-emerald-400 hover:text-emerald-200 underline font-medium"
+            >
+              Manage Account
+            </button>
+          </div>
+        ) : (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-zinc-300">
+            <div className="flex items-center space-x-2">
+              <LogIn className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                Playing in guest mode. <strong>Sign in</strong> to sync and verify your picks in Supabase!
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAuthOpen(true)}
+              className="text-[11px] bg-zinc-800 hover:bg-zinc-700 text-white font-semibold px-2.5 py-1 rounded-lg border border-zinc-700 transition"
+            >
+              Sign In
+            </button>
+          </div>
+        )}
+
+        {/* Pool Summary Stats Bar */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold shrink-0">
@@ -153,30 +286,72 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Desktop Save Button */}
+              {/* Desktop Save Button & Feedback */}
               <div className="hidden sm:flex items-center space-x-3">
-                {isSaved && (
-                  <span className="text-xs text-emerald-400 flex items-center space-x-1 font-semibold animate-pulse">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Picks Saved!</span>
+                {saveStatus && (
+                  <span
+                    className={`text-xs flex items-center space-x-1.5 font-semibold ${
+                      saveStatus.type === "success"
+                        ? "text-emerald-400"
+                        : saveStatus.type === "error"
+                        ? "text-rose-400"
+                        : "text-amber-400"
+                    }`}
+                  >
+                    {saveStatus.type === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                    )}
+                    <span>{saveStatus.message}</span>
                   </span>
                 )}
+
                 <button
                   type="button"
                   onClick={handleSavePicks}
+                  disabled={isSaving}
                   className={`px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all shadow-md flex items-center space-x-2 active:scale-95 touch-manipulation ${
                     allPicksMade
                       ? "bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20"
                       : "bg-zinc-100 hover:bg-white text-zinc-950"
                   }`}
                 >
-                  <Save className="w-4 h-4" />
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
                   <span>
-                    {allPicksMade ? "Submit All Picks" : "Save Current Picks"}
+                    {isSaving
+                      ? "Saving..."
+                      : allPicksMade
+                      ? "Submit All Picks"
+                      : "Save Current Picks"}
                   </span>
                 </button>
               </div>
             </div>
+
+            {/* Notification Toast for Mobile View */}
+            {saveStatus && (
+              <div
+                className={`sm:hidden p-3 rounded-xl text-xs flex items-center space-x-2 border shadow-md ${
+                  saveStatus.type === "success"
+                    ? "bg-emerald-950/60 text-emerald-300 border-emerald-800"
+                    : saveStatus.type === "error"
+                    ? "bg-rose-950/60 text-rose-300 border-rose-800"
+                    : "bg-amber-950/60 text-amber-300 border-amber-800"
+                }`}
+              >
+                {saveStatus.type === "success" ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                )}
+                <span>{saveStatus.message}</span>
+              </div>
+            )}
 
             {/* Games Matchup List */}
             <div className="grid grid-cols-1 gap-3 sm:gap-4">
@@ -227,7 +402,7 @@ export default function Home() {
                     value={mnfPrediction}
                     onChange={(e) => {
                       setMnfPrediction(e.target.value);
-                      setIsSaved(false);
+                      setSaveStatus(null);
                     }}
                     className="w-16 text-center py-1 bg-transparent text-sm font-bold text-white focus:outline-none"
                   />
@@ -243,6 +418,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={handleSavePicks}
+                  disabled={isSaving}
                   className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3.5 py-2 rounded-xl border border-zinc-700 transition active:scale-95 font-medium"
                 >
                   Save Tiebreaker
@@ -256,7 +432,7 @@ export default function Home() {
         {activeTab === "leaderboard" && (
           <LeaderboardTable
             entries={MOCK_LEADERBOARD}
-            currentUserId={MOCK_USER.id}
+            currentUserId={currentUser?.id || MOCK_USER.id}
           />
         )}
 
@@ -290,15 +466,18 @@ export default function Home() {
           <button
             type="button"
             onClick={handleSavePicks}
+            disabled={isSaving}
             className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md flex items-center space-x-1.5 active:scale-95 touch-manipulation shrink-0 ${
-              isSaved
+              saveStatus?.type === "success"
                 ? "bg-emerald-600 text-white"
                 : allPicksMade
                 ? "bg-emerald-400 text-zinc-950 shadow-emerald-400/20"
                 : "bg-white text-zinc-950"
             }`}
           >
-            {isSaved ? (
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
+            ) : saveStatus?.type === "success" ? (
               <>
                 <CheckCircle2 className="w-4 h-4 text-white" />
                 <span>Saved!</span>
@@ -312,6 +491,14 @@ export default function Home() {
           </button>
         </div>
       )}
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        currentUser={currentUser}
+        onAuthStateChanged={loadUserAndPicks}
+      />
 
       {/* Clean Sports App Footer */}
       <footer className="border-t border-zinc-800/80 bg-zinc-950 py-6 text-center text-xs text-zinc-500">

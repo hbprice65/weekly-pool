@@ -2,13 +2,13 @@ import { createBrowserClient } from "@supabase/ssr";
 
 export function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    // Return null or fallback in development/demo mode before Supabase credentials are configured
     return null;
   }
 
   return createBrowserClient(supabaseUrl, supabaseAnonKey);
 }
-
