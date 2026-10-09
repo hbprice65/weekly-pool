@@ -11,7 +11,9 @@ import {
   getCurrentUser,
   fetchUserPicksFromSupabase,
   saveUserPicksToSupabase,
+  fetchLiveLeaderboard,
 } from "@/lib/supabase/picks-service";
+import { LeaderboardEntry } from "@/types";
 import {
   CheckCircle2,
   Save,
@@ -39,9 +41,17 @@ export default function Home() {
   // Authentication & Supabase state
   const [currentUser, setCurrentUser] = useState<{ id: string; email?: string } | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
 
-  // Load user session and their saved picks
+  // Load user session, their saved picks, and live leaderboard
   const loadUserAndPicks = useCallback(async () => {
+    // 1. Fetch live pool leaderboard
+    const liveBoard = await fetchLiveLeaderboard();
+    if (liveBoard && liveBoard.length > 0) {
+      setLeaderboardEntries(liveBoard);
+    }
+
+    // 2. Fetch authenticated user
     const user = await getCurrentUser();
     if (user) {
       setCurrentUser({ id: user.id, email: user.email });
@@ -129,6 +139,11 @@ export default function Home() {
           type: "success",
           message: `Picks saved to Supabase for ${currentUser.email || "user"}!`,
         });
+        // Immediately refresh live leaderboard with newly saved picks
+        const updatedBoard = await fetchLiveLeaderboard();
+        if (updatedBoard && updatedBoard.length > 0) {
+          setLeaderboardEntries(updatedBoard);
+        }
       } else {
         setSaveStatus({
           type: "error",
@@ -162,6 +177,12 @@ export default function Home() {
   const allPicksMade = pickedCount === totalGames;
   const progressPercent = Math.round((pickedCount / totalGames) * 100);
 
+  const myEntry = currentUser
+    ? leaderboardEntries.find((e) => e.userId === currentUser.id)
+    : null;
+  const myRank = myEntry ? myEntry.rank : 1;
+  const myPoints = myEntry ? myEntry.totalPoints : 0;
+
   const displayName = currentUser?.email
     ? currentUser.email.split("@")[0]
     : MOCK_USER.displayName;
@@ -174,8 +195,8 @@ export default function Home() {
         setActiveTab={setActiveTab}
         selectedWeek={MOCK_WEEK.weekNumber}
         userName={displayName}
-        userPoints={MOCK_USER.totalPoints}
-        userRank={MOCK_USER.seasonRank}
+        userPoints={currentUser ? myPoints : MOCK_USER.totalPoints}
+        userRank={currentUser ? myRank : MOCK_USER.seasonRank}
         isAuthenticated={!!currentUser}
         onOpenAuth={() => setIsAuthOpen(true)}
       />
@@ -249,7 +270,7 @@ export default function Home() {
             <div className="min-w-0">
               <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Your Standing</div>
               <div className="text-sm sm:text-lg font-bold text-white truncate">
-                #{MOCK_USER.seasonRank} in Pool
+                #{currentUser ? myRank : MOCK_USER.seasonRank} in Pool
               </div>
             </div>
           </div>
@@ -431,8 +452,8 @@ export default function Home() {
         {/* Tab 2: Leaderboard View */}
         {activeTab === "leaderboard" && (
           <LeaderboardTable
-            entries={MOCK_LEADERBOARD}
-            currentUserId={currentUser?.id || MOCK_USER.id}
+            entries={leaderboardEntries}
+            currentUserId={currentUser?.id}
           />
         )}
 

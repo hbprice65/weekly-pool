@@ -74,5 +74,7 @@ export interface LeaderboardEntry {
   totalPicks: number;
   rank: number;
   tiebreakerDiff?: number;
+  predictedMnfScore?: number;
+  picks?: Record<string, string>;
 }
 

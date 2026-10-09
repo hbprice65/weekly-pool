@@ -16,11 +16,18 @@ create policy "Allow insert on weeks" on public.weeks for insert with check (tru
 drop policy if exists "Allow insert on games" on public.games;
 create policy "Allow insert on games" on public.games for insert with check (true);
 
--- Ensure tiebreakers and picks support UPSERT with check
+-- Ensure tiebreakers and picks support UPSERT with check and public select for leaderboard
 drop policy if exists "Users can manage their own tiebreakers." on public.tiebreakers;
-create policy "Users can view their own tiebreakers." on public.tiebreakers for select using (auth.uid() = user_id);
+drop policy if exists "Users can view their own tiebreakers." on public.tiebreakers;
+drop policy if exists "Tiebreakers are viewable by everyone." on public.tiebreakers;
+create policy "Tiebreakers are viewable by everyone." on public.tiebreakers for select using (true);
 create policy "Users can insert their own tiebreakers." on public.tiebreakers for insert with check (auth.uid() = user_id);
 create policy "Users can update their own tiebreakers." on public.tiebreakers for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "Users can view their own picks." on public.picks;
+drop policy if exists "Users can view others picks after kickoff." on public.picks;
+drop policy if exists "Picks are viewable by everyone." on public.picks;
+create policy "Picks are viewable by everyone." on public.picks for select using (true);
 
 drop policy if exists "Users can update picks before kickoff." on public.picks;
 create policy "Users can update picks before kickoff." on public.picks for update 
