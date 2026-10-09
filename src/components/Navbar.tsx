@@ -1,11 +1,13 @@
 "use client";
 
 import React from "react";
-import { Trophy, Calendar, ShieldCheck, User, LogIn } from "lucide-react";
+import { Trophy, Calendar, ShieldCheck, Activity, User, LogIn } from "lucide-react";
+
+export type NavTab = "picks" | "scoreboard" | "leaderboard" | "rules";
 
 interface NavbarProps {
-  activeTab: "picks" | "leaderboard" | "rules";
-  setActiveTab: (tab: "picks" | "leaderboard" | "rules") => void;
+  activeTab: NavTab;
+  setActiveTab: (tab: NavTab) => void;
   selectedWeek: number;
   userName?: string;
   userPoints?: number;
@@ -44,47 +46,66 @@ export function Navbar({
                 </span>
               </div>
               <p className="text-[11px] text-zinc-400 hidden md:block truncate">
-                Pick weekly winners & climb the standings
+                Pick weekly winners & track live pool scores
               </p>
             </div>
           </div>
 
-          {/* Desktop/Tablet Nav Tabs (Hidden on small mobile, visible on sm and up) */}
-          <nav className="hidden sm:flex items-center space-x-1.5 md:space-x-2">
+          {/* Desktop & Tablet Navigation (4 Tabs) */}
+          <nav className="hidden sm:flex items-center space-x-1 md:space-x-1.5 lg:space-x-2">
+            {/* 1. Make Picks */}
             <button
               type="button"
               onClick={() => setActiveTab("picks")}
-              className={`px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5 md:space-x-2 ${
+              className={`px-2.5 py-1.5 md:px-3.5 md:py-2 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5 md:space-x-2 ${
                 activeTab === "picks"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
             >
-              <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-400" />
+              <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-400 shrink-0" />
               <span>Week {selectedWeek} Picks</span>
             </button>
+
+            {/* 2. Weekly Scoreboard (New dedicated page) */}
+            <button
+              type="button"
+              onClick={() => setActiveTab("scoreboard")}
+              className={`px-2.5 py-1.5 md:px-3.5 md:py-2 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5 md:space-x-2 ${
+                activeTab === "scoreboard"
+                  ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-400 shrink-0" />
+              <span>Scoreboard</span>
+            </button>
+
+            {/* 3. Season Leaderboard */}
             <button
               type="button"
               onClick={() => setActiveTab("leaderboard")}
-              className={`px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5 md:space-x-2 ${
+              className={`px-2.5 py-1.5 md:px-3.5 md:py-2 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5 md:space-x-2 ${
                 activeTab === "leaderboard"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
             >
-              <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-400" />
+              <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-400 shrink-0" />
               <span>Leaderboard</span>
             </button>
+
+            {/* 4. Rules */}
             <button
               type="button"
               onClick={() => setActiveTab("rules")}
-              className={`px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5 md:space-x-2 ${
+              className={`px-2.5 py-1.5 md:px-3.5 md:py-2 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5 md:space-x-2 ${
                 activeTab === "rules"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
             >
-              <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4 text-sky-400" />
+              <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4 text-sky-400 shrink-0" />
               <span>Rules</span>
             </button>
           </nav>
@@ -130,13 +151,14 @@ export function Navbar({
           </div>
         </div>
 
-        {/* Mobile Tab Segmented Control (Visible on phones < sm, sticky & tap-friendly) */}
+        {/* Mobile Tab Segmented Bar (4 Tabs visible on phones < sm, tap-friendly) */}
         <div className="sm:hidden pb-2.5 pt-1">
-          <div className="grid grid-cols-3 gap-1 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800 text-center">
+          <div className="grid grid-cols-4 gap-1 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800 text-center">
+            {/* 1. Picks */}
             <button
               type="button"
               onClick={() => setActiveTab("picks")}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
+              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col xs:flex-row items-center justify-center space-y-0.5 xs:space-y-0 xs:space-x-1 ${
                 activeTab === "picks"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700/80"
                   : "text-zinc-400 hover:text-white"
@@ -145,10 +167,26 @@ export function Navbar({
               <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span className="truncate">Picks</span>
             </button>
+
+            {/* 2. Scoreboard */}
+            <button
+              type="button"
+              onClick={() => setActiveTab("scoreboard")}
+              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col xs:flex-row items-center justify-center space-y-0.5 xs:space-y-0 xs:space-x-1 ${
+                activeTab === "scoreboard"
+                  ? "bg-zinc-800 text-white shadow-sm border border-zinc-700/80"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="truncate">Scores</span>
+            </button>
+
+            {/* 3. Leaderboard */}
             <button
               type="button"
               onClick={() => setActiveTab("leaderboard")}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
+              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col xs:flex-row items-center justify-center space-y-0.5 xs:space-y-0 xs:space-x-1 ${
                 activeTab === "leaderboard"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700/80"
                   : "text-zinc-400 hover:text-white"
@@ -157,10 +195,12 @@ export function Navbar({
               <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span className="truncate">Standings</span>
             </button>
+
+            {/* 4. Rules */}
             <button
               type="button"
               onClick={() => setActiveTab("rules")}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
+              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col xs:flex-row items-center justify-center space-y-0.5 xs:space-y-0 xs:space-x-1 ${
                 activeTab === "rules"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700/80"
                   : "text-zinc-400 hover:text-white"

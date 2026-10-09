@@ -73,6 +73,7 @@ export interface LeaderboardEntry {
   correctPicks: number;
   totalPicks: number;
   rank: number;
+  weeklyRank?: number;
   tiebreakerDiff?: number;
   predictedMnfScore?: number;
   picks?: Record<string, string>;

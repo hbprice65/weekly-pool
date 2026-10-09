@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Navbar } from "@/components/Navbar";
+import { Navbar, NavTab } from "@/components/Navbar";
 import { GameCard } from "@/components/GameCard";
+import { WeeklyScoreboard } from "@/components/WeeklyScoreboard";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
 import { RulesCard } from "@/components/RulesCard";
 import { AuthModal } from "@/components/AuthModal";
@@ -12,13 +13,13 @@ import {
   fetchUserPicksFromSupabase,
   saveUserPicksToSupabase,
   fetchLiveLeaderboard,
+  fetchWeekGames,
 } from "@/lib/supabase/picks-service";
-import { LeaderboardEntry } from "@/types";
+import { Game, LeaderboardEntry } from "@/types";
 import {
   CheckCircle2,
   Save,
   Calendar,
-  Clock,
   Trophy,
   Minus,
   Plus,
@@ -26,10 +27,11 @@ import {
   AlertCircle,
   Loader2,
   LogIn,
+  Activity,
 } from "lucide-react";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"picks" | "leaderboard" | "rules">("picks");
+  const [activeTab, setActiveTab] = useState<NavTab>("picks");
   const [userPicks, setUserPicks] = useState<Record<string, string>>({});
   const [mnfPrediction, setMnfPrediction] = useState<string>("47");
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -42,16 +44,48 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<{ id: string; email?: string } | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
+  const [weekGames, setWeekGames] = useState<Game[]>(MOCK_WEEK.games);
 
-  // Load user session, their saved picks, and live leaderboard
+  // Sync tab with URL hash if present
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (typeof window !== "undefined") {
+        const hash = window.location.hash.replace("#", "");
+        if (["picks", "scoreboard", "leaderboard", "rules"].includes(hash)) {
+          setActiveTab(hash as NavTab);
+        }
+      }
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+    queueMicrotask(() => {
+      handleHashChange();
+    });
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  const handleTabChange = (tab: NavTab) => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `#${tab}`);
+    }
+  };
+
+  // Load games, user session, saved picks, and live leaderboard
   const loadUserAndPicks = useCallback(async () => {
-    // 1. Fetch live pool leaderboard
+    // 1. Fetch live games for Week 6
+    const games = await fetchWeekGames();
+    if (games && games.length > 0) {
+      setWeekGames(games);
+    }
+
+    // 2. Fetch live pool leaderboard
     const liveBoard = await fetchLiveLeaderboard();
     if (liveBoard && liveBoard.length > 0) {
       setLeaderboardEntries(liveBoard);
     }
 
-    // 2. Fetch authenticated user
+    // 3. Fetch authenticated user
     const user = await getCurrentUser();
     if (user) {
       setCurrentUser({ id: user.id, email: user.email });
@@ -88,9 +122,14 @@ export default function Home() {
       } else {
         setUserPicks({
           g1: "SF",
+          g2: "JAX",
           g3: "BAL",
           g4: "HOU",
+          g5: "TB",
+          g6: "PHI",
           g7: "DET",
+          g8: "CIN",
+          g9: "BUF",
         });
       }
 
@@ -172,7 +211,7 @@ export default function Home() {
     setSaveStatus(null);
   };
 
-  const totalGames = MOCK_WEEK.games.length;
+  const totalGames = weekGames.length;
   const pickedCount = Object.keys(userPicks).length;
   const allPicksMade = pickedCount === totalGames;
   const progressPercent = Math.round((pickedCount / totalGames) * 100);
@@ -180,8 +219,10 @@ export default function Home() {
   const myEntry = currentUser
     ? leaderboardEntries.find((e) => e.userId === currentUser.id)
     : null;
-  const myRank = myEntry ? myEntry.rank : 1;
-  const myPoints = myEntry ? myEntry.totalPoints : 0;
+  const myRank = myEntry ? myEntry.rank : MOCK_USER.seasonRank;
+  const myWeeklyRank = myEntry?.weeklyRank ?? MOCK_USER.weeklyRank ?? 2;
+  const myPoints = myEntry ? myEntry.totalPoints : MOCK_USER.totalPoints;
+  const myWeeklyPoints = myEntry ? myEntry.weeklyPoints : 7;
 
   const displayName = currentUser?.email
     ? currentUser.email.split("@")[0]
@@ -192,7 +233,7 @@ export default function Home() {
       {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         selectedWeek={MOCK_WEEK.weekNumber}
         userName={displayName}
         userPoints={currentUser ? myPoints : MOCK_USER.totalPoints}
@@ -202,7 +243,7 @@ export default function Home() {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 pb-24 sm:pb-12">
-        {/* Supabase User Cloud Status Banner (Subtle and informative) */}
+        {/* Supabase User Cloud Status Banner */}
         {currentUser ? (
           <div className="bg-emerald-950/30 border border-emerald-800/40 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-emerald-300">
             <div className="flex items-center space-x-2">
@@ -239,18 +280,20 @@ export default function Home() {
 
         {/* Pool Summary Stats Bar */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          {/* Card 1: Matchups */}
           <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold shrink-0">
               <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
-              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Matchups</div>
+              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Current Slate</div>
               <div className="text-sm sm:text-lg font-bold text-white truncate">
-                {MOCK_WEEK.title}
+                {MOCK_WEEK.title} ({totalGames} Games)
               </div>
             </div>
           </div>
 
+          {/* Card 2: Picks Made */}
           <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold shrink-0">
               <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -263,26 +306,28 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Card 3: Week 6 Standing */}
+          <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold shrink-0">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Week 6 Standing</div>
+              <div className="text-sm sm:text-lg font-bold text-white truncate">
+                #{myWeeklyRank} • {myWeeklyPoints} pts
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Season Standing */}
           <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold shrink-0">
               <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
-              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Your Standing</div>
+              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Season Standing</div>
               <div className="text-sm sm:text-lg font-bold text-white truncate">
-                #{currentUser ? myRank : MOCK_USER.seasonRank} in Pool
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold shrink-0">
-              <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Lock Time</div>
-              <div className="text-sm sm:text-lg font-bold text-white truncate">
-                Thu 8:15 PM ET
+                #{myRank} • {myPoints} pts
               </div>
             </div>
           </div>
@@ -291,7 +336,7 @@ export default function Home() {
         {/* Tab 1: Picks View */}
         {activeTab === "picks" && (
           <div className="space-y-4 sm:space-y-6">
-            {/* Desktop / Tablet Top Action Bar */}
+            {/* Top Action Bar */}
             <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
               <div>
                 <div className="flex items-center space-x-2">
@@ -376,7 +421,7 @@ export default function Home() {
 
             {/* Games Matchup List */}
             <div className="grid grid-cols-1 gap-3 sm:gap-4">
-              {MOCK_WEEK.games.map((game) => (
+              {weekGames.map((game) => (
                 <GameCard
                   key={game.id}
                   game={game}
@@ -449,15 +494,26 @@ export default function Home() {
           </div>
         )}
 
-        {/* Tab 2: Leaderboard View */}
+        {/* Tab 2: Dedicated Weekly Scoreboard */}
+        {activeTab === "scoreboard" && (
+          <WeeklyScoreboard
+            games={weekGames}
+            entries={leaderboardEntries}
+            currentUserId={currentUser?.id}
+            selectedWeek={MOCK_WEEK.weekNumber}
+          />
+        )}
+
+        {/* Tab 3: Dedicated Season Leaderboard */}
         {activeTab === "leaderboard" && (
           <LeaderboardTable
             entries={leaderboardEntries}
             currentUserId={currentUser?.id}
+            onNavigateToScoreboard={() => handleTabChange("scoreboard")}
           />
         )}
 
-        {/* Tab 3: Rules View */}
+        {/* Tab 4: Rules View */}
         {activeTab === "rules" && <RulesCard />}
       </main>
 
@@ -521,14 +577,14 @@ export default function Home() {
         onAuthStateChanged={loadUserAndPicks}
       />
 
-      {/* Clean Sports App Footer */}
+      {/* Sports App Footer */}
       <footer className="border-t border-zinc-800/80 bg-zinc-950 py-6 text-center text-xs text-zinc-500">
         <div className="max-w-7xl mx-auto px-4 space-y-1.5">
           <p className="text-zinc-400 font-medium">
             © 2026 NFL Weekly Picks Pool • All game times displayed in US/Eastern
           </p>
           <p className="text-[11px] text-zinc-400">
-            Compete weekly with league members • Live standings & straight-up pick&apos;em scoring
+            Compete weekly with league members • Straight-up pick&apos;em scoring & Monday Night Football tiebreakers
           </p>
         </div>
       </footer>
