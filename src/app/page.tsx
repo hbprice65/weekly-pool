@@ -28,13 +28,17 @@ import {
   Loader2,
   LogIn,
   Activity,
+  RefreshCw,
 } from "lucide-react";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<NavTab>("picks");
+  const [selectedWeek, setSelectedWeek] = useState<number>(6);
   const [userPicks, setUserPicks] = useState<Record<string, string>>({});
   const [mnfPrediction, setMnfPrediction] = useState<string>("47");
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [, setLastUpdated] = useState<string>("Just now");
   const [saveStatus, setSaveStatus] = useState<{
     type: "success" | "info" | "error";
     message: string;
@@ -71,80 +75,109 @@ export default function Home() {
     }
   };
 
-  // Load games, user session, saved picks, and live leaderboard
-  const loadUserAndPicks = useCallback(async () => {
-    // 1. Fetch live games for Week 6
-    const games = await fetchWeekGames();
-    if (games && games.length > 0) {
-      setWeekGames(games);
-    }
+  // Load schedule, live scores, user session, and live leaderboard
+  const loadWeekData = useCallback(
+    async (weekNum: number = selectedWeek, forceFresh: boolean = false) => {
+      if (forceFresh) setIsRefreshing(true);
 
-    // 2. Fetch live pool leaderboard
-    const liveBoard = await fetchLiveLeaderboard();
-    if (liveBoard && liveBoard.length > 0) {
-      setLeaderboardEntries(liveBoard);
-    }
+      // 1. Fetch live schedule and scores for the specified week
+      const games = await fetchWeekGames(weekNum, 2026, forceFresh);
+      if (games && games.length > 0) {
+        setWeekGames(games);
+      }
 
-    // 3. Fetch authenticated user
-    const user = await getCurrentUser();
-    if (user) {
-      setCurrentUser({ id: user.id, email: user.email });
+      // 2. Fetch live pool leaderboard with winner outcomes
+      const liveBoard = await fetchLiveLeaderboard(weekNum, games);
+      if (liveBoard && liveBoard.length > 0) {
+        setLeaderboardEntries(liveBoard);
+      }
 
-      // Fetch saved picks from Supabase for this user
-      const { picks, mnfScore } = await fetchUserPicksFromSupabase(user.id);
-      if (Object.keys(picks).length > 0) {
-        setUserPicks(picks);
-      } else {
-        // Fallback to localStorage if Supabase has no picks yet for this user
-        const local = localStorage.getItem(`nfl_picks_${user.id}`);
-        if (local) {
-          try {
-            setUserPicks(JSON.parse(local));
-          } catch {
-            // ignore
+      // 3. Fetch authenticated user & saved picks
+      const user = await getCurrentUser();
+      if (user) {
+        setCurrentUser({ id: user.id, email: user.email });
+
+        const { picks, mnfScore } = await fetchUserPicksFromSupabase(user.id, weekNum);
+        if (Object.keys(picks).length > 0) {
+          setUserPicks(picks);
+        } else {
+          const local = localStorage.getItem(`nfl_picks_${user.id}_week_${weekNum}`);
+          if (local) {
+            try {
+              setUserPicks(JSON.parse(local));
+            } catch {
+              setUserPicks({});
+            }
+          } else {
+            setUserPicks({});
           }
         }
-      }
 
-      if (mnfScore) {
-        setMnfPrediction(mnfScore);
-      }
-    } else {
-      setCurrentUser(null);
-      // Fallback: load demo/guest picks from localStorage
-      const saved = localStorage.getItem("nfl_weekly_picks_week_6");
-      if (saved) {
-        try {
-          setUserPicks(JSON.parse(saved));
-        } catch {
-          // ignore
+        if (mnfScore) {
+          setMnfPrediction(mnfScore);
+        } else {
+          setMnfPrediction("45");
         }
       } else {
-        setUserPicks({
-          g1: "SF",
-          g2: "JAX",
-          g3: "BAL",
-          g4: "HOU",
-          g5: "TB",
-          g6: "PHI",
-          g7: "DET",
-          g8: "CIN",
-          g9: "BUF",
-        });
+        setCurrentUser(null);
+        // Fallback: load demo/guest picks from localStorage
+        const saved = localStorage.getItem(`nfl_weekly_picks_week_${weekNum}`);
+        if (saved) {
+          try {
+            setUserPicks(JSON.parse(saved));
+          } catch {
+            setUserPicks({});
+          }
+        } else if (weekNum === 6) {
+          // Default mock picks for demo week 6
+          setUserPicks({
+            g1: "SF",
+            g2: "JAX",
+            g3: "BAL",
+            g4: "HOU",
+            g5: "TB",
+            g6: "PHI",
+            g7: "DET",
+            g8: "CIN",
+            g9: "BUF",
+          });
+        } else {
+          setUserPicks({});
+        }
+
+        const savedMnf = localStorage.getItem(`nfl_weekly_mnf_week_${weekNum}`);
+        if (savedMnf) {
+          setMnfPrediction(savedMnf);
+        } else {
+          setMnfPrediction("45");
+        }
       }
 
-      const savedMnf = localStorage.getItem("nfl_weekly_mnf_week_6");
-      if (savedMnf) {
-        setMnfPrediction(savedMnf);
-      }
-    }
-  }, []);
+      setLastUpdated(
+        new Date().toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      );
+      if (forceFresh) setIsRefreshing(false);
+    },
+    [selectedWeek]
+  );
 
   useEffect(() => {
     queueMicrotask(() => {
-      loadUserAndPicks();
+      loadWeekData(selectedWeek, false);
     });
-  }, [loadUserAndPicks]);
+  }, [loadWeekData, selectedWeek]);
+
+  const handleSelectWeek = (newWeek: number) => {
+    setSelectedWeek(newWeek);
+    loadWeekData(newWeek, false);
+  };
+
+  const handleRefresh = () => {
+    loadWeekData(selectedWeek, true);
+  };
 
   const handleSelectPick = (gameId: string, teamId: string) => {
     setUserPicks((prev) => {
@@ -158,47 +191,46 @@ export default function Home() {
     setIsSaving(true);
     setSaveStatus(null);
 
-    // Always cache locally in browser storage
+    // Save to browser cache for resilience
     const storageKey = currentUser
-      ? `nfl_picks_${currentUser.id}`
-      : "nfl_weekly_picks_week_6";
+      ? `nfl_picks_${currentUser.id}_week_${selectedWeek}`
+      : `nfl_weekly_picks_week_${selectedWeek}`;
     localStorage.setItem(storageKey, JSON.stringify(userPicks));
-    localStorage.setItem("nfl_weekly_mnf_week_6", mnfPrediction);
+    localStorage.setItem(`nfl_weekly_mnf_week_${selectedWeek}`, mnfPrediction);
 
     // If user is authenticated with Supabase, persist to database
     if (currentUser) {
       const res = await saveUserPicksToSupabase(
         currentUser.id,
         userPicks,
-        mnfPrediction
+        mnfPrediction,
+        selectedWeek
       );
 
       if (res.success) {
         setSaveStatus({
           type: "success",
-          message: `Picks saved to Supabase for ${currentUser.email || "user"}!`,
+          message: `Week ${selectedWeek} picks saved to Supabase for ${currentUser.email || "user"}!`,
         });
-        // Immediately refresh live leaderboard with newly saved picks
-        const updatedBoard = await fetchLiveLeaderboard();
+        const updatedBoard = await fetchLiveLeaderboard(selectedWeek, weekGames);
         if (updatedBoard && updatedBoard.length > 0) {
           setLeaderboardEntries(updatedBoard);
         }
       } else {
         setSaveStatus({
           type: "error",
-          message: `Saved locally. Supabase sync notice: ${res.error || "Check database games"}.`,
+          message: `Saved locally. Notice: ${res.error || "Check database games"}.`,
         });
       }
     } else {
       setSaveStatus({
         type: "info",
-        message: "Picks saved locally! Sign in to sync your picks to Supabase across devices.",
+        message: `Week ${selectedWeek} picks saved locally! Sign in to sync across devices.`,
       });
     }
 
     setIsSaving(false);
 
-    // Auto-dismiss notification after 5 seconds
     setTimeout(() => {
       setSaveStatus(null);
     }, 5000);
@@ -213,8 +245,9 @@ export default function Home() {
 
   const totalGames = weekGames.length;
   const pickedCount = Object.keys(userPicks).length;
-  const allPicksMade = pickedCount === totalGames;
-  const progressPercent = Math.round((pickedCount / totalGames) * 100);
+  const allPicksMade = totalGames > 0 && pickedCount === totalGames;
+  const progressPercent =
+    totalGames > 0 ? Math.round((pickedCount / totalGames) * 100) : 0;
 
   const myEntry = currentUser
     ? leaderboardEntries.find((e) => e.userId === currentUser.id)
@@ -228,13 +261,21 @@ export default function Home() {
     ? currentUser.email.split("@")[0]
     : MOCK_USER.displayName;
 
+  // Identify Monday Night Football tiebreaker game dynamically
+  const mnfGame =
+    weekGames.find((g) => g.isMondayNight) ||
+    weekGames[weekGames.length - 1];
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-black">
-      {/* Top Navigation */}
+      {/* Top Navigation Bar with Week Stepper & Live Sync */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={handleTabChange}
-        selectedWeek={MOCK_WEEK.weekNumber}
+        selectedWeek={selectedWeek}
+        onSelectWeek={handleSelectWeek}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
         userName={displayName}
         userPoints={currentUser ? myPoints : MOCK_USER.totalPoints}
         userRank={currentUser ? myRank : MOCK_USER.seasonRank}
@@ -249,7 +290,7 @@ export default function Home() {
             <div className="flex items-center space-x-2">
               <CloudCheck className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>
-                Connected to Supabase as <strong>{currentUser.email}</strong> • Picks save to your account
+                Connected to Supabase as <strong>{currentUser.email}</strong> • Week {selectedWeek} picks auto-synced
               </span>
             </div>
             <button
@@ -265,7 +306,7 @@ export default function Home() {
             <div className="flex items-center space-x-2">
               <LogIn className="w-4 h-4 text-amber-400 shrink-0" />
               <span>
-                Playing in guest mode. <strong>Sign in</strong> to sync and verify your picks in Supabase!
+                Playing in guest mode. <strong>Sign in</strong> to sync and verify your Week {selectedWeek} picks in Supabase!
               </span>
             </div>
             <button
@@ -280,7 +321,7 @@ export default function Home() {
 
         {/* Pool Summary Stats Bar */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-          {/* Card 1: Matchups */}
+          {/* Card 1: Slate Details */}
           <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold shrink-0">
               <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -288,7 +329,7 @@ export default function Home() {
             <div className="min-w-0">
               <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Current Slate</div>
               <div className="text-sm sm:text-lg font-bold text-white truncate">
-                {MOCK_WEEK.title} ({totalGames} Games)
+                Week {selectedWeek} ({totalGames} Games)
               </div>
             </div>
           </div>
@@ -306,13 +347,13 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Card 3: Week 6 Standing */}
+          {/* Card 3: Week Standing */}
           <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold shrink-0">
               <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
-              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Week 6 Standing</div>
+              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Week {selectedWeek} Standing</div>
               <div className="text-sm sm:text-lg font-bold text-white truncate">
                 #{myWeeklyRank} • {myWeeklyPoints} pts
               </div>
@@ -341,14 +382,14 @@ export default function Home() {
               <div>
                 <div className="flex items-center space-x-2">
                   <h2 className="text-base sm:text-lg font-bold text-white">
-                    Week {MOCK_WEEK.weekNumber} Matchups
+                    Week {selectedWeek} Matchups
                   </h2>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/60 font-medium">
                     {pickedCount}/{totalGames} selected
                   </span>
                 </div>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  Tap any team to select the winner. Changes can be saved anytime before kickoff.
+                  Official NFL schedule • Select outright winners before each game kicks off.
                 </p>
               </div>
 
@@ -372,6 +413,20 @@ export default function Home() {
                     <span>{saveStatus.message}</span>
                   </span>
                 )}
+
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="px-3 py-2.5 rounded-xl border border-zinc-800 hover:border-zinc-700 bg-zinc-900 text-zinc-300 hover:text-white text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95"
+                >
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 text-emerald-400 ${
+                      isRefreshing ? "animate-spin" : ""
+                    }`}
+                  />
+                  <span>Sync Schedule</span>
+                </button>
 
                 <button
                   type="button"
@@ -440,7 +495,13 @@ export default function Home() {
                     <span>Monday Night Football Tiebreaker</span>
                   </h3>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Predict total combined points in <strong>Buffalo Bills vs New York Jets</strong>.
+                    Predict total combined points in{" "}
+                    <strong>
+                      {mnfGame
+                        ? `${mnfGame.awayTeam.fullName} vs ${mnfGame.homeTeam.fullName}`
+                        : "the final weekly matchup"}
+                    </strong>
+                    .
                   </p>
                 </div>
               </div>
@@ -500,7 +561,9 @@ export default function Home() {
             games={weekGames}
             entries={leaderboardEntries}
             currentUserId={currentUser?.id}
-            selectedWeek={MOCK_WEEK.weekNumber}
+            selectedWeek={selectedWeek}
+            onRefresh={handleRefresh}
+            isRefreshing={isRefreshing}
           />
         )}
 
@@ -574,7 +637,7 @@ export default function Home() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         currentUser={currentUser}
-        onAuthStateChanged={loadUserAndPicks}
+        onAuthStateChanged={() => loadWeekData(selectedWeek, false)}
       />
 
       {/* Sports App Footer */}
@@ -584,7 +647,7 @@ export default function Home() {
             © 2026 NFL Weekly Picks Pool • All game times displayed in US/Eastern
           </p>
           <p className="text-[11px] text-zinc-400">
-            Compete weekly with league members • Straight-up pick&apos;em scoring & Monday Night Football tiebreakers
+            Official NFL schedule & scores • Straight-up pick&apos;em scoring & Monday Night Football tiebreakers
           </p>
         </div>
       </footer>

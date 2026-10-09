@@ -9,6 +9,7 @@ import {
   Clock,
   Search,
   Trophy,
+  RefreshCw,
 } from "lucide-react";
 
 interface WeeklyScoreboardProps {
@@ -16,6 +17,8 @@ interface WeeklyScoreboardProps {
   entries: LeaderboardEntry[];
   currentUserId?: string;
   selectedWeek?: number;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export function WeeklyScoreboard({
@@ -23,17 +26,18 @@ export function WeeklyScoreboard({
   entries,
   currentUserId,
   selectedWeek = 6,
+  onRefresh,
+  isRefreshing = false,
 }: WeeklyScoreboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterGameStatus, setFilterGameStatus] = useState<"ALL" | "FINAL" | "SCHEDULED">("ALL");
   const [activeSubView, setActiveSubView] = useState<"matrix" | "games" | "standings">("matrix");
 
-  // Sort entries for Week 6 by weeklyPoints descending
+  // Sort entries for this week by weeklyPoints descending
   const weeklySortedEntries = [...entries].sort((a, b) => {
     if (b.weeklyPoints !== a.weeklyPoints) {
       return b.weeklyPoints - a.weeklyPoints;
     }
-    // Tiebreaker: closest to 45 if known, or total correct picks
     return b.correctPicks - a.correctPicks;
   });
 
@@ -50,38 +54,63 @@ export function WeeklyScoreboard({
   });
 
   const finalGamesCount = games.filter((g) => g.status === "FINAL").length;
+  const inProgressCount = games.filter((g) => g.status === "IN_PROGRESS").length;
   const scheduledGamesCount = games.filter((g) => g.status === "SCHEDULED").length;
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      {/* Week 6 Scoreboard Header */}
+      {/* Week Scoreboard Header */}
       <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
             <h2 className="text-base sm:text-xl font-bold text-white flex items-center space-x-2">
               <Activity className="w-5 h-5 text-emerald-400 shrink-0" />
-              <span>Week {selectedWeek} Live Scoreboard</span>
+              <span>Week {selectedWeek} Live NFL Scoreboard</span>
             </h2>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
-              Live
+              ESPN Official Data
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Weekly matchup results, current week scores, and pool-wide pick selections.
+            Real NFL scores, weekly winner results, and pool-wide participant pick matrix.
           </p>
         </div>
 
-        {/* Status Pills */}
-        <div className="flex items-center space-x-2 shrink-0">
+        {/* Status Pills & Refresh Button */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <span className="text-[11px] bg-zinc-800 text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <span>{finalGamesCount} Final</span>
           </span>
+
+          {inProgressCount > 0 && (
+            <span className="text-[11px] bg-emerald-950/80 text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-700/80 font-bold flex items-center space-x-1.5 animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>{inProgressCount} Live Now</span>
+            </span>
+          )}
+
           <span className="text-[11px] bg-zinc-800 text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5">
             <span className="w-2 h-2 rounded-full bg-purple-400" />
-            <span>{scheduledGamesCount} Pending (MNF)</span>
+            <span>{scheduledGamesCount} Upcoming</span>
           </span>
+
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="p-1.5 px-3 bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-200 hover:text-white transition flex items-center space-x-1.5 active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 text-emerald-400 ${
+                  isRefreshing ? "animate-spin" : ""
+                }`}
+              />
+              <span>{isRefreshing ? "Refreshing..." : "Refresh Scores"}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -123,7 +152,7 @@ export function WeeklyScoreboard({
           </button>
         </div>
 
-        {/* Participant Search (Only for matrix and standings) */}
+        {/* Participant Search */}
         {activeSubView !== "games" && (
           <div className="relative max-w-[200px] w-full hidden sm:block">
             <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -138,14 +167,14 @@ export function WeeklyScoreboard({
         )}
       </div>
 
-      {/* VIEW 1: WHO PICKED WHO MATRIX (The centerpiece of any weekly pool!) */}
+      {/* VIEW 1: WHO PICKED WHO MATRIX */}
       {activeSubView === "matrix" && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl sm:rounded-2xl overflow-hidden shadow-sm">
           {/* Matrix Header / Controls */}
           <div className="p-3.5 sm:p-4 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-2.5">
             <div className="flex items-center space-x-2">
               <span className="text-xs sm:text-sm font-bold text-white">
-                Week {selectedWeek} Selections Matrix
+                Week {selectedWeek} Picks Matrix
               </span>
               <span className="text-[11px] text-zinc-400 hidden xs:inline">
                 • Scroll horizontally to view all matchups
@@ -184,18 +213,24 @@ export function WeeklyScoreboard({
                     <th
                       key={g.id}
                       scope="col"
-                      className="px-2.5 py-3 text-center whitespace-nowrap min-w-[76px] sm:min-w-[88px] border-r border-zinc-800/60"
+                      className="px-2.5 py-3 text-center whitespace-nowrap min-w-[80px] sm:min-w-[90px] border-r border-zinc-800/60"
                     >
                       <div className="text-[11px] font-bold text-zinc-200">
                         {g.awayTeam.id} @ {g.homeTeam.id}
                       </div>
                       <div className="text-[9px] text-zinc-400 font-mono mt-0.5">
-                        {g.status === "FINAL" ? (
+                        {g.status === "FINAL" && g.awayScore !== undefined && g.homeScore !== undefined ? (
                           <span className="text-zinc-300 font-bold">
                             {g.awayScore}-{g.homeScore}
                           </span>
+                        ) : g.status === "IN_PROGRESS" ? (
+                          <span className="text-emerald-400 font-bold">
+                            {g.awayScore ?? 0}-{g.homeScore ?? 0}
+                          </span>
                         ) : (
-                          <span className="text-purple-300 font-semibold">MNF</span>
+                          <span className="text-purple-300 font-semibold">
+                            {g.isMondayNight ? "MNF" : "Pre"}
+                          </span>
                         )}
                       </div>
                     </th>
@@ -333,7 +368,7 @@ export function WeeklyScoreboard({
                     : "text-zinc-400 hover:text-white"
                 }`}
               >
-                Scheduled ({scheduledGamesCount})
+                Upcoming ({scheduledGamesCount + inProgressCount})
               </button>
             </div>
           </div>
@@ -341,6 +376,7 @@ export function WeeklyScoreboard({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {displayedGames.map((game) => {
               const isFinal = game.status === "FINAL";
+              const isLive = game.status === "IN_PROGRESS";
               const awayWon = isFinal && game.winnerTeamId === game.awayTeam.id;
               const homeWon = isFinal && game.winnerTeamId === game.homeTeam.id;
 
@@ -355,6 +391,12 @@ export function WeeklyScoreboard({
               const awayPct = totalGamePicks > 0 ? Math.round((awayPicks / totalGamePicks) * 100) : 50;
               const homePct = totalGamePicks > 0 ? 100 - awayPct : 50;
 
+              const kickoffFormatted = new Date(game.kickoffTime).toLocaleDateString("en-US", {
+                weekday: "short",
+                hour: "numeric",
+                minute: "2-digit",
+              });
+
               return (
                 <div
                   key={game.id}
@@ -367,10 +409,15 @@ export function WeeklyScoreboard({
                         <span className="font-bold text-zinc-300 uppercase tracking-wider bg-zinc-800 px-2 py-0.5 rounded text-[10px]">
                           FINAL
                         </span>
+                      ) : isLive ? (
+                        <span className="flex items-center space-x-1 text-emerald-400 font-bold bg-emerald-950/80 px-2 py-0.5 rounded text-[10px] border border-emerald-800/80 animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          <span>LIVE • {game.statusDetail || "In Progress"}</span>
+                        </span>
                       ) : (
-                        <span className="flex items-center space-x-1 text-purple-300 font-semibold bg-purple-950/80 px-2 py-0.5 rounded text-[10px] border border-purple-800/80">
-                          <Clock className="w-3 h-3" />
-                          <span>Mon 8:15 PM</span>
+                        <span className="flex items-center space-x-1 text-zinc-300 font-semibold bg-zinc-800/80 px-2 py-0.5 rounded text-[10px] border border-zinc-700/80">
+                          <Clock className="w-3 h-3 text-zinc-400" />
+                          <span>{game.statusDetail || kickoffFormatted}</span>
                         </span>
                       )}
                       {game.isMondayNight && (
@@ -394,21 +441,35 @@ export function WeeklyScoreboard({
                         awayWon ? "bg-emerald-950/30 border border-emerald-800/40" : "bg-zinc-950/40"
                       }`}
                     >
-                      <div className="flex items-center space-x-2.5">
-                        <div
-                          className="w-7 h-7 rounded-md flex items-center justify-center font-black text-xs text-white shadow-sm"
-                          style={{ backgroundColor: game.awayTeam.primaryColor }}
-                        >
-                          {game.awayTeam.id}
-                        </div>
-                        <div>
-                          <div className={`text-xs font-bold ${awayWon ? "text-emerald-300" : "text-white"}`}>
+                      <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+                        {game.awayTeam.logoUrl ? (
+                          <div className="w-7 h-7 rounded-md bg-zinc-900 p-0.5 flex items-center justify-center shrink-0 border border-zinc-800">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={game.awayTeam.logoUrl}
+                              alt={game.awayTeam.fullName}
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            className="w-7 h-7 rounded-md flex items-center justify-center font-black text-xs text-white shadow-sm shrink-0"
+                            style={{ backgroundColor: game.awayTeam.primaryColor }}
+                          >
+                            {game.awayTeam.id}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className={`text-xs font-bold truncate ${awayWon ? "text-emerald-300" : "text-white"}`}>
                             {game.awayTeam.fullName}
                           </div>
-                          <div className="text-[10px] text-zinc-400">Away</div>
+                          <div className="text-[10px] text-zinc-400 flex items-center space-x-1">
+                            <span>Away</span>
+                            {game.awayTeam.record && <span>• {game.awayTeam.record}</span>}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         {game.awayScore !== undefined ? (
                           <span
                             className={`text-lg font-black ${
@@ -431,21 +492,35 @@ export function WeeklyScoreboard({
                         homeWon ? "bg-emerald-950/30 border border-emerald-800/40" : "bg-zinc-950/40"
                       }`}
                     >
-                      <div className="flex items-center space-x-2.5">
-                        <div
-                          className="w-7 h-7 rounded-md flex items-center justify-center font-black text-xs text-white shadow-sm"
-                          style={{ backgroundColor: game.homeTeam.primaryColor }}
-                        >
-                          {game.homeTeam.id}
-                        </div>
-                        <div>
-                          <div className={`text-xs font-bold ${homeWon ? "text-emerald-300" : "text-white"}`}>
+                      <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+                        {game.homeTeam.logoUrl ? (
+                          <div className="w-7 h-7 rounded-md bg-zinc-900 p-0.5 flex items-center justify-center shrink-0 border border-zinc-800">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={game.homeTeam.logoUrl}
+                              alt={game.homeTeam.fullName}
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            className="w-7 h-7 rounded-md flex items-center justify-center font-black text-xs text-white shadow-sm shrink-0"
+                            style={{ backgroundColor: game.homeTeam.primaryColor }}
+                          >
+                            {game.homeTeam.id}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className={`text-xs font-bold truncate ${homeWon ? "text-emerald-300" : "text-white"}`}>
                             {game.homeTeam.fullName}
                           </div>
-                          <div className="text-[10px] text-zinc-400">Home</div>
+                          <div className="text-[10px] text-zinc-400 flex items-center space-x-1">
+                            <span>Home</span>
+                            {game.homeTeam.record && <span>• {game.homeTeam.record}</span>}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         {game.homeScore !== undefined ? (
                           <span
                             className={`text-lg font-black ${
@@ -489,7 +564,7 @@ export function WeeklyScoreboard({
         </div>
       )}
 
-      {/* VIEW 3: WEEK 6 STANDINGS ONLY */}
+      {/* VIEW 3: WEEK STANDINGS ONLY */}
       {activeSubView === "standings" && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl sm:rounded-2xl overflow-hidden shadow-sm">
           <div className="p-4 sm:p-5 border-b border-zinc-800">

@@ -1,7 +1,17 @@
 "use client";
 
 import React from "react";
-import { Trophy, Calendar, ShieldCheck, Activity, User, LogIn } from "lucide-react";
+import {
+  Trophy,
+  Calendar,
+  ShieldCheck,
+  Activity,
+  User,
+  LogIn,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+} from "lucide-react";
 
 export type NavTab = "picks" | "scoreboard" | "leaderboard" | "rules";
 
@@ -9,6 +19,9 @@ interface NavbarProps {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
   selectedWeek: number;
+  onSelectWeek?: (week: number) => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
   userName?: string;
   userPoints?: number;
   userRank?: number;
@@ -20,6 +33,9 @@ export function Navbar({
   activeTab,
   setActiveTab,
   selectedWeek,
+  onSelectWeek,
+  onRefresh,
+  isRefreshing = false,
   userName = "GridironGuru",
   userPoints = 58,
   userRank = 2,
@@ -45,39 +61,39 @@ export function Navbar({
                   2026
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400 hidden md:block truncate">
+              <p className="text-[11px] text-zinc-400 hidden lg:block truncate">
                 Pick weekly winners & track live pool scores
               </p>
             </div>
           </div>
 
           {/* Desktop & Tablet Navigation (4 Tabs) */}
-          <nav className="hidden sm:flex items-center space-x-1 md:space-x-1.5 lg:space-x-2">
+          <nav className="hidden md:flex items-center space-x-1 lg:space-x-1.5">
             {/* 1. Make Picks */}
             <button
               type="button"
               onClick={() => setActiveTab("picks")}
-              className={`px-2.5 py-1.5 md:px-3.5 md:py-2 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5 md:space-x-2 ${
+              className={`px-2.5 py-1.5 lg:px-3 lg:py-2 text-xs font-medium rounded-lg transition-all flex items-center space-x-1.5 ${
                 activeTab === "picks"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
             >
-              <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-400 shrink-0" />
+              <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span>Week {selectedWeek} Picks</span>
             </button>
 
-            {/* 2. Weekly Scoreboard (New dedicated page) */}
+            {/* 2. Weekly Scoreboard */}
             <button
               type="button"
               onClick={() => setActiveTab("scoreboard")}
-              className={`px-2.5 py-1.5 md:px-3.5 md:py-2 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5 md:space-x-2 ${
+              className={`px-2.5 py-1.5 lg:px-3 lg:py-2 text-xs font-medium rounded-lg transition-all flex items-center space-x-1.5 ${
                 activeTab === "scoreboard"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
             >
-              <Activity className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-400 shrink-0" />
+              <Activity className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span>Scoreboard</span>
             </button>
 
@@ -85,13 +101,13 @@ export function Navbar({
             <button
               type="button"
               onClick={() => setActiveTab("leaderboard")}
-              className={`px-2.5 py-1.5 md:px-3.5 md:py-2 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5 md:space-x-2 ${
+              className={`px-2.5 py-1.5 lg:px-3 lg:py-2 text-xs font-medium rounded-lg transition-all flex items-center space-x-1.5 ${
                 activeTab === "leaderboard"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
             >
-              <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-400 shrink-0" />
+              <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>Leaderboard</span>
             </button>
 
@@ -99,23 +115,77 @@ export function Navbar({
             <button
               type="button"
               onClick={() => setActiveTab("rules")}
-              className={`px-2.5 py-1.5 md:px-3.5 md:py-2 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center space-x-1.5 md:space-x-2 ${
+              className={`px-2.5 py-1.5 lg:px-3 lg:py-2 text-xs font-medium rounded-lg transition-all flex items-center space-x-1.5 ${
                 activeTab === "rules"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
             >
-              <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4 text-sky-400 shrink-0" />
+              <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
               <span>Rules</span>
             </button>
           </nav>
 
-          {/* Participant Profile Pill or Sign In Button */}
+          {/* Right Action Cluster: Week Stepper + Refresh + Auth */}
           <div className="flex items-center space-x-2 shrink-0">
+            {/* Week Stepper / Dropdown */}
+            {onSelectWeek && (
+              <div className="flex items-center space-x-0.5 bg-zinc-900/90 border border-zinc-800 rounded-lg sm:rounded-xl p-0.5">
+                <button
+                  type="button"
+                  onClick={() => onSelectWeek(Math.max(1, selectedWeek - 1))}
+                  disabled={selectedWeek <= 1}
+                  className="p-1 sm:p-1.5 rounded-md text-zinc-400 hover:text-white disabled:opacity-25 transition"
+                  title="Previous Week"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <select
+                  value={selectedWeek}
+                  onChange={(e) => onSelectWeek(Number(e.target.value))}
+                  className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer py-1 px-1 sm:px-1.5 border-none"
+                  aria-label="Select NFL Week"
+                >
+                  {Array.from({ length: 18 }, (_, i) => i + 1).map((w) => (
+                    <option key={w} value={w} className="bg-zinc-900 text-white font-sans">
+                      Wk {w}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => onSelectWeek(Math.min(18, selectedWeek + 1))}
+                  disabled={selectedWeek >= 18}
+                  className="p-1 sm:p-1.5 rounded-md text-zinc-400 hover:text-white disabled:opacity-25 transition"
+                  title="Next Week"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Quick Live Refresh Button */}
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                title="Refresh schedule & live scores"
+                className="p-2 sm:px-2.5 sm:py-2 bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-750 rounded-lg sm:rounded-xl transition text-zinc-300 hover:text-white active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 text-emerald-400 ${
+                    isRefreshing ? "animate-spin" : ""
+                  }`}
+                />
+              </button>
+            )}
+
+            {/* User Profile Pill */}
             <button
               type="button"
               onClick={onOpenAuth}
-              className="flex items-center space-x-2 bg-zinc-900/90 hover:bg-zinc-800/90 border border-zinc-800 hover:border-zinc-700 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl transition text-left active:scale-95 touch-manipulation group"
+              className="flex items-center space-x-2 bg-zinc-900/90 hover:bg-zinc-800/90 border border-zinc-800 hover:border-zinc-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl transition text-left active:scale-95 touch-manipulation group"
               title="Click to manage account or switch user"
             >
               <div
@@ -131,8 +201,8 @@ export function Navbar({
                   <LogIn className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-zinc-400" />
                 )}
               </div>
-              <div className="text-left">
-                <div className="text-[11px] sm:text-xs font-semibold text-white leading-tight max-w-[85px] sm:max-w-[130px] truncate group-hover:text-emerald-300 transition-colors">
+              <div className="text-left hidden xs:block">
+                <div className="text-[11px] sm:text-xs font-semibold text-white leading-tight max-w-[80px] sm:max-w-[120px] truncate group-hover:text-emerald-300 transition-colors">
                   {isAuthenticated ? userName : "Sign In"}
                 </div>
                 <div className="text-[9px] sm:text-[10px] text-zinc-400 leading-tight">
@@ -143,7 +213,7 @@ export function Navbar({
                       <span>#{userRank}</span>
                     </>
                   ) : (
-                    <span className="text-emerald-400/90 font-medium">Supabase Sync</span>
+                    <span className="text-emerald-400/90 font-medium">Sync</span>
                   )}
                 </div>
               </div>
@@ -151,8 +221,8 @@ export function Navbar({
           </div>
         </div>
 
-        {/* Mobile Tab Segmented Bar (4 Tabs visible on phones < sm, tap-friendly) */}
-        <div className="sm:hidden pb-2.5 pt-1">
+        {/* Mobile Tab Segmented Bar */}
+        <div className="md:hidden pb-2.5 pt-1">
           <div className="grid grid-cols-4 gap-1 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800 text-center">
             {/* 1. Picks */}
             <button
@@ -165,7 +235,7 @@ export function Navbar({
               }`}
             >
               <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="truncate">Picks</span>
+              <span className="truncate">Wk {selectedWeek}</span>
             </button>
 
             {/* 2. Scoreboard */}

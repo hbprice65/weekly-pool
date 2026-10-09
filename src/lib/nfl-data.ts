@@ -321,5 +321,15 @@ export const NFL_TEAMS: Record<string, NFLTeam> = {
     primaryColor: "#5A1414",
     secondaryColor: "#FFB612",
   },
+  WSH: {
+    id: "WAS",
+    name: "Commanders",
+    city: "Washington",
+    fullName: "Washington Commanders",
+    conference: "NFC",
+    division: "East",
+    primaryColor: "#5A1414",
+    secondaryColor: "#FFB612",
+  },
 };
 

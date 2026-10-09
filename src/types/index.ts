@@ -11,6 +11,7 @@ export interface NFLTeam {
   primaryColor: string;
   secondaryColor: string;
   record?: string; // e.g. "4-1"
+  logoUrl?: string;
 }
 
 export type GameStatus = "SCHEDULED" | "IN_PROGRESS" | "FINAL";
@@ -29,6 +30,7 @@ export interface Game {
   winnerTeamId?: string;
   tvNetwork?: string;
   isMondayNight?: boolean;
+  statusDetail?: string; // e.g. "Final", "Final/OT", "1st Qtr 10:24", "Thu 8:15 PM"
 }
 
 export interface Pick {

@@ -2,6 +2,7 @@ import { createClient } from "./client";
 import { Game, GameStatus, LeaderboardEntry } from "@/types";
 import { MOCK_LEADERBOARD, MOCK_GAMES } from "@/lib/mock-data";
 import { NFL_TEAMS } from "@/lib/nfl-data";
+import { fetchNFLWeekSchedule, syncScheduleToSupabase } from "@/lib/api/nfl";
 
 export interface SavePicksResult {
   success: boolean;
@@ -31,9 +32,27 @@ export async function getCurrentUser() {
 }
 
 /**
- * Fetch games for Week 6 from Supabase or fallback to mock games
+ * Fetch accurate live games and results for any NFL week
+ * Primary: Real-time ESPN Scoreboard API (with background Supabase sync)
+ * Fallback: Supabase games table, then static mock data
  */
-export async function fetchWeekGames(): Promise<Game[]> {
+export async function fetchWeekGames(
+  weekNumber: number = 6,
+  seasonYear: number = 2026,
+  forceFresh: boolean = false
+): Promise<Game[]> {
+  try {
+    const liveData = await fetchNFLWeekSchedule(weekNumber, seasonYear, forceFresh);
+    if (liveData && liveData.week && liveData.week.games.length > 0) {
+      // Background non-blocking sync to Supabase
+      syncScheduleToSupabase(liveData.week.games, weekNumber, seasonYear).catch(() => {});
+      return liveData.week.games;
+    }
+  } catch (err) {
+    console.warn(`Notice: ESPN live schedule fetch returned error, falling back to database:`, err);
+  }
+
+  // Fallback to Supabase database
   const supabase = createClient();
   if (!supabase) return MOCK_GAMES;
 
@@ -41,7 +60,7 @@ export async function fetchWeekGames(): Promise<Game[]> {
     const { data: gamesData, error } = await supabase
       .from("games")
       .select("*")
-      .eq("week_number", 6)
+      .eq("week_number", weekNumber)
       .order("kickoff_time", { ascending: true });
 
     if (error || !gamesData || gamesData.length === 0) {
@@ -65,6 +84,7 @@ export async function fetchWeekGames(): Promise<Game[]> {
         awayTeam: awayTeam || mockFallback!.awayTeam,
         kickoffTime: row.kickoff_time,
         status: (row.status || mockFallback?.status || "SCHEDULED") as GameStatus,
+        statusDetail: row.status === "FINAL" ? "Final" : undefined,
         spread:
           row.spread !== null && row.spread !== undefined
             ? Number(row.spread)
@@ -89,10 +109,11 @@ export async function fetchWeekGames(): Promise<Game[]> {
 }
 
 /**
- * Fetch user's saved picks from Supabase
+ * Fetch user's saved picks from Supabase for a specific week
  */
 export async function fetchUserPicksFromSupabase(
-  userId: string
+  userId: string,
+  weekNumber: number = 6
 ): Promise<{ picks: Record<string, string>; mnfScore?: string }> {
   const supabase = createClient();
   if (!supabase || !userId) return { picks: {} };
@@ -116,12 +137,12 @@ export async function fetchUserPicksFromSupabase(
       }
     }
 
-    // 2. Fetch tiebreaker prediction for Week 6
+    // 2. Fetch tiebreaker prediction for the selected week
     const { data: tieData, error: tieError } = await supabase
       .from("tiebreakers")
       .select("predicted_mnf_score")
       .eq("user_id", userId)
-      .eq("week_number", 6)
+      .eq("week_number", weekNumber)
       .maybeSingle();
 
     if (tieError) {
@@ -144,7 +165,8 @@ export async function fetchUserPicksFromSupabase(
 export async function saveUserPicksToSupabase(
   userId: string,
   picks: Record<string, string>,
-  mnfScore?: string | number
+  mnfScore?: string | number,
+  weekNumber: number = 6
 ): Promise<SavePicksResult> {
   const supabase = createClient();
   if (!supabase) {
@@ -186,7 +208,7 @@ export async function saveUserPicksToSupabase(
         const { error: tieError } = await supabase.from("tiebreakers").upsert(
           {
             user_id: userId,
-            week_number: 6,
+            week_number: weekNumber,
             predicted_mnf_score: parsedScore,
             updated_at: new Date().toISOString(),
           },
@@ -212,9 +234,12 @@ export async function saveUserPicksToSupabase(
 }
 
 /**
- * Fetch and compute the live pool leaderboard from Supabase
+ * Fetch and compute the live pool leaderboard from Supabase and live game outcomes
  */
-export async function fetchLiveLeaderboard(): Promise<LeaderboardEntry[]> {
+export async function fetchLiveLeaderboard(
+  weekNumber: number = 6,
+  liveGames?: Game[]
+): Promise<LeaderboardEntry[]> {
   const supabase = createClient();
   if (!supabase) return MOCK_LEADERBOARD;
 
@@ -233,27 +258,45 @@ export async function fetchLiveLeaderboard(): Promise<LeaderboardEntry[]> {
       .from("picks")
       .select("user_id, game_id, selected_team, is_correct, points_awarded");
 
-    // 3. Fetch all tiebreaker predictions
+    // 3. Fetch all tiebreaker predictions for this week
     const { data: allTiebreakers } = await supabase
       .from("tiebreakers")
-      .select("user_id, predicted_mnf_score");
+      .select("user_id, predicted_mnf_score, week_number")
+      .eq("week_number", weekNumber);
 
-    // 4. Fetch games to evaluate outcomes
-    const { data: allGames } = await supabase
-      .from("games")
-      .select("id, winner_team, status");
-
+    // 4. Build games map for evaluating winner outcomes
     const gamesMap: Record<string, { winner_team?: string | null; status: string }> = {};
-    if (allGames && allGames.length > 0) {
-      for (const g of allGames) {
-        // Fallback to MOCK_GAMES winner if database has null
-        const mockG = MOCK_GAMES.find((mg) => mg.id === g.id);
+
+    // First populate from liveGames if supplied
+    if (liveGames && liveGames.length > 0) {
+      for (const g of liveGames) {
         gamesMap[g.id] = {
-          winner_team: g.winner_team || mockG?.winnerTeamId,
-          status: g.status || mockG?.status || "SCHEDULED",
+          winner_team: g.winnerTeamId || null,
+          status: g.status,
         };
       }
-    } else {
+    }
+
+    // Next merge Supabase games
+    const { data: allGames } = await supabase
+      .from("games")
+      .select("id, winner_team, status")
+      .eq("week_number", weekNumber);
+
+    if (allGames && allGames.length > 0) {
+      for (const g of allGames) {
+        if (!gamesMap[g.id] || !gamesMap[g.id].winner_team) {
+          const mockG = MOCK_GAMES.find((mg) => mg.id === g.id);
+          gamesMap[g.id] = {
+            winner_team: g.winner_team || mockG?.winnerTeamId,
+            status: g.status || mockG?.status || "SCHEDULED",
+          };
+        }
+      }
+    }
+
+    // If still empty, fallback to MOCK_GAMES
+    if (Object.keys(gamesMap).length === 0) {
       for (const mg of MOCK_GAMES) {
         gamesMap[mg.id] = {
           winner_team: mg.winnerTeamId,
@@ -299,7 +342,7 @@ export async function fetchLiveLeaderboard(): Promise<LeaderboardEntry[]> {
       }
     }
 
-    // Baseline points for prior 5 weeks (50 pts avg) to keep realistic season standings
+    // Baseline points for prior weeks to simulate a season-long race
     const BASELINE_SEASON_POINTS = 50;
 
     // Build leaderboard entries for each registered profile
@@ -340,7 +383,6 @@ export async function fetchLiveLeaderboard(): Promise<LeaderboardEntry[]> {
     }
 
     // 2. Calculate Weekly Ranks (sorted by weeklyPoints descending)
-    // Clone copy to sort for weekly rank
     const weeklySorted = [...entries].sort((a, b) => {
       if (b.weeklyPoints !== a.weeklyPoints) {
         return b.weeklyPoints - a.weeklyPoints;
