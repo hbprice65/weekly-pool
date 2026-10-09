@@ -25,7 +25,7 @@ export function WeeklyScoreboard({
   games,
   entries,
   currentUserId,
-  selectedWeek = 6,
+  selectedWeek,
   onRefresh,
   isRefreshing = false,
 }: WeeklyScoreboardProps) {

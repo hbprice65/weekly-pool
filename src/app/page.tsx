@@ -15,6 +15,7 @@ import {
   fetchLiveLeaderboard,
   fetchWeekGames,
 } from "@/lib/supabase/picks-service";
+import { fetchCurrentActiveNFLWeek } from "@/lib/api/nfl";
 import { Game, LeaderboardEntry } from "@/types";
 import {
   CheckCircle2,
@@ -33,9 +34,10 @@ import {
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<NavTab>("picks");
-  const [selectedWeek, setSelectedWeek] = useState<number>(6);
+  const [selectedWeek, setSelectedWeek] = useState<number>(5);
+
   const [userPicks, setUserPicks] = useState<Record<string, string>>({});
-  const [mnfPrediction, setMnfPrediction] = useState<string>("47");
+  const [mnfPrediction, setMnfPrediction] = useState<string>("45");
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [, setLastUpdated] = useState<string>("Just now");
@@ -50,7 +52,7 @@ export default function Home() {
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
   const [weekGames, setWeekGames] = useState<Game[]>(MOCK_WEEK.games);
 
-  // Sync tab with URL hash if present
+  // 1. Sync tab with URL hash if present
   useEffect(() => {
     const handleHashChange = () => {
       if (typeof window !== "undefined") {
@@ -68,6 +70,25 @@ export default function Home() {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
+  // 2. Detect live active NFL week on initial mount if not specified in URL
+  useEffect(() => {
+    let isMounted = true;
+    fetchCurrentActiveNFLWeek().then(({ currentWeek }) => {
+      if (isMounted && currentWeek) {
+        setSelectedWeek((prev) => {
+          if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("week")) return prev;
+          }
+          return currentWeek;
+        });
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleTabChange = (tab: NavTab) => {
     setActiveTab(tab);
     if (typeof window !== "undefined") {
@@ -75,7 +96,7 @@ export default function Home() {
     }
   };
 
-  // Load schedule, live scores, user session, and live leaderboard
+  // Load schedule, live scores, user session, and live leaderboard for selected week
   const loadWeekData = useCallback(
     async (weekNum: number = selectedWeek, forceFresh: boolean = false) => {
       if (forceFresh) setIsRefreshing(true);
@@ -92,7 +113,7 @@ export default function Home() {
         setLeaderboardEntries(liveBoard);
       }
 
-      // 3. Fetch authenticated user & saved picks
+      // 3. Fetch authenticated user & saved picks for this specific week
       const user = await getCurrentUser();
       if (user) {
         setCurrentUser({ id: user.id, email: user.email });
@@ -128,19 +149,6 @@ export default function Home() {
           } catch {
             setUserPicks({});
           }
-        } else if (weekNum === 6) {
-          // Default mock picks for demo week 6
-          setUserPicks({
-            g1: "SF",
-            g2: "JAX",
-            g3: "BAL",
-            g4: "HOU",
-            g5: "TB",
-            g6: "PHI",
-            g7: "DET",
-            g8: "CIN",
-            g9: "BUF",
-          });
         } else {
           setUserPicks({});
         }
@@ -173,6 +181,11 @@ export default function Home() {
   const handleSelectWeek = (newWeek: number) => {
     setSelectedWeek(newWeek);
     loadWeekData(newWeek, false);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("week", String(newWeek));
+      window.history.replaceState(null, "", url.toString());
+    }
   };
 
   const handleRefresh = () => {
@@ -252,10 +265,10 @@ export default function Home() {
   const myEntry = currentUser
     ? leaderboardEntries.find((e) => e.userId === currentUser.id)
     : null;
-  const myRank = myEntry ? myEntry.rank : MOCK_USER.seasonRank;
-  const myWeeklyRank = myEntry?.weeklyRank ?? MOCK_USER.weeklyRank ?? 2;
-  const myPoints = myEntry ? myEntry.totalPoints : MOCK_USER.totalPoints;
-  const myWeeklyPoints = myEntry ? myEntry.weeklyPoints : 7;
+  const myRank = myEntry ? myEntry.rank : (currentUser ? 1 : MOCK_USER.seasonRank);
+  const myWeeklyRank = myEntry?.weeklyRank ?? (currentUser ? 1 : MOCK_USER.weeklyRank ?? 1);
+  const myPoints = myEntry ? myEntry.totalPoints : (currentUser ? 0 : MOCK_USER.totalPoints);
+  const myWeeklyPoints = myEntry ? myEntry.weeklyPoints : 0;
 
   const displayName = currentUser?.email
     ? currentUser.email.split("@")[0]

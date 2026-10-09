@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchNFLWeekSchedule, syncScheduleToSupabase } from "@/lib/api/nfl";
+import {
+  fetchNFLWeekSchedule,
+  syncScheduleToSupabase,
+  fetchCurrentActiveNFLWeek,
+} from "@/lib/api/nfl";
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,8 +12,9 @@ export async function GET(request: NextRequest) {
     const yearParam = searchParams.get("year");
     const syncParam = searchParams.get("sync"); // optional: sync=true to trigger Supabase upsert
 
-    const weekNumber = weekParam ? parseInt(weekParam, 10) : 6;
-    const seasonYear = yearParam ? parseInt(yearParam, 10) : 2026;
+    const activeInfo = await fetchCurrentActiveNFLWeek();
+    const weekNumber = weekParam ? parseInt(weekParam, 10) : activeInfo.currentWeek;
+    const seasonYear = yearParam ? parseInt(yearParam, 10) : activeInfo.seasonYear;
     const shouldSync = syncParam === "true";
 
     if (isNaN(weekNumber) || weekNumber < 1 || weekNumber > 22) {

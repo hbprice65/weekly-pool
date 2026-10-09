@@ -14,6 +14,20 @@ const cache: Record<string, { data: NFLScoreboardResponse; timestamp: number }> 
 const CACHE_TTL_MS = 60 * 1000; // 1 minute cache
 
 /**
+ * Calculates current NFL regular season week dynamically based on the calendar
+ * NFL weeks roll over every Tuesday morning at 3:00 AM ET after Monday Night Football
+ */
+export function calculateFallbackWeek(date?: Date): number {
+  const targetDate = date || new Date();
+  const seasonStart = new Date("2026-09-08T00:00:00Z").getTime();
+  const now = targetDate.getTime();
+  if (now < seasonStart) return 1;
+  const msInWeek = 7 * 24 * 60 * 60 * 1000;
+  const weekDiff = Math.floor((now - seasonStart) / msInWeek) + 1;
+  return Math.max(1, Math.min(18, weekDiff));
+}
+
+/**
  * Normalizes ESPN team abbreviation to our standard 3-letter codes
  */
 export function normalizeTeamAbbreviation(abbr: string): string {
@@ -59,7 +73,6 @@ function resolveTeam(
  */
 function isMondayNightGame(isoDateStr: string, network?: string): boolean {
   if (network && (network.includes("ESPN") || network.includes("ABC"))) {
-    // Check if day is Monday in Eastern Time
     try {
       const day = new Date(isoDateStr).toLocaleDateString("en-US", {
         weekday: "short",
@@ -87,25 +100,25 @@ function isMondayNightGame(isoDateStr: string, network?: string): boolean {
  * Uses ESPN's public real-time scoreboard API
  */
 export async function fetchNFLWeekSchedule(
-  weekNumber: number = 6,
+  weekNumber?: number,
   seasonYear: number = 2026,
   forceFresh: boolean = false
 ): Promise<NFLScoreboardResponse> {
-  const cacheKey = `week_${weekNumber}_year_${seasonYear}`;
+  const targetWeek = weekNumber ?? calculateFallbackWeek();
+  const cacheKey = `week_${targetWeek}_year_${seasonYear}`;
   const now = Date.now();
 
   if (!forceFresh && cache[cacheKey] && now - cache[cacheKey].timestamp < CACHE_TTL_MS) {
     return cache[cacheKey].data;
   }
 
-  const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=${weekNumber}&dates=${seasonYear}`;
+  const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=${targetWeek}&dates=${seasonYear}`;
 
   try {
     const response = await fetch(url, {
       headers: {
         Accept: "application/json",
       },
-      // Revalidate cache after 60 seconds
       next: { revalidate: 60 },
     });
 
@@ -114,7 +127,7 @@ export async function fetchNFLWeekSchedule(
     }
 
     const data = await response.json();
-    const currentWeekNumber = data.week?.number || weekNumber;
+    const currentWeekNumber = data.week?.number || targetWeek;
     const actualYear = data.season?.year || seasonYear;
 
     const events = data.events || [];
@@ -171,14 +184,12 @@ export async function fetchNFLWeekSchedule(
         competition.geoBroadcasts?.[0]?.media?.shortName ||
         competition.broadcast;
 
-      // Status short detail (e.g. "Final", "1st Qtr 9:45", "Sun, 1:00 PM EDT")
       const statusDetail = event.status?.type?.shortDetail || event.status?.type?.detail || event.status?.type?.description;
-
       const isMnf = isMondayNightGame(event.date, tvNetwork);
 
       parsedGames.push({
         id: event.id,
-        weekNumber,
+        weekNumber: targetWeek,
         seasonYear: actualYear,
         homeTeam,
         awayTeam,
@@ -206,13 +217,13 @@ export async function fetchNFLWeekSchedule(
         : new Date().toISOString();
 
     const week: Week = {
-      weekNumber,
+      weekNumber: targetWeek,
       seasonYear: actualYear,
-      title: `Week ${weekNumber}`,
+      title: `Week ${targetWeek}`,
       startDate: lockDate,
       endDate: lastGameDate,
       lockDate,
-      isCurrent: weekNumber === currentWeekNumber,
+      isCurrent: targetWeek === currentWeekNumber,
       isCompleted: parsedGames.every((g) => g.status === "FINAL"),
       games: parsedGames,
     };
@@ -231,7 +242,7 @@ export async function fetchNFLWeekSchedule(
 
     return result;
   } catch (error) {
-    console.error(`Error fetching NFL schedule for week ${weekNumber}:`, error);
+    console.error(`Error fetching NFL schedule for week ${targetWeek}:`, error);
     throw error;
   }
 }
@@ -250,14 +261,14 @@ export async function fetchCurrentActiveNFLWeek(): Promise<{
     );
     if (res.ok) {
       const data = await res.json();
-      const currentWeek = data.week?.number || 6;
+      const currentWeek = data.week?.number || calculateFallbackWeek();
       const seasonYear = data.season?.year || 2026;
       return { currentWeek, seasonYear };
     }
   } catch (err) {
     console.warn("Could not determine current NFL week from ESPN:", err);
   }
-  return { currentWeek: 6, seasonYear: 2026 };
+  return { currentWeek: calculateFallbackWeek(), seasonYear: 2026 };
 }
 
 /**
