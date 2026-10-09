@@ -5,7 +5,6 @@ import { Navbar } from "@/components/Navbar";
 import { GameCard } from "@/components/GameCard";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
 import { RulesCard } from "@/components/RulesCard";
-import { SupabaseBanner } from "@/components/SupabaseBanner";
 import { MOCK_WEEK, MOCK_LEADERBOARD, MOCK_USER } from "@/lib/mock-data";
 import { CheckCircle2, Save, Calendar, Clock, Trophy } from "lucide-react";
 
@@ -14,7 +13,6 @@ export default function Home() {
   const [userPicks, setUserPicks] = useState<Record<string, string>>({});
   const [mnfPrediction, setMnfPrediction] = useState<string>("47");
   const [isSaved, setIsSaved] = useState<boolean>(false);
-  const [isSupabaseConfigured, setIsSupabaseConfigured] = useState<boolean>(false);
 
   // Load saved picks from localStorage if available
   useEffect(() => {
@@ -27,7 +25,7 @@ export default function Home() {
           // Fallback to default
         }
       } else {
-        // Default initial mock picks for demonstration
+        // Default initial picks for demonstration
         setUserPicks({
           g1: "SF",
           g3: "BAL",
@@ -39,14 +37,6 @@ export default function Home() {
       const savedMnf = localStorage.getItem("nfl_weekly_mnf_week_6");
       if (savedMnf) {
         setMnfPrediction(savedMnf);
-      }
-
-      // Check if Supabase keys are configured in environment
-      if (
-        process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://your-project.supabase.co"
-      ) {
-        setIsSupabaseConfigured(true);
       }
     });
   }, []);
@@ -78,17 +68,16 @@ export default function Home() {
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        isSupabaseConfigured={isSupabaseConfigured}
         selectedWeek={MOCK_WEEK.weekNumber}
+        userName={MOCK_USER.displayName}
+        userPoints={MOCK_USER.totalPoints}
+        userRank={MOCK_USER.seasonRank}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Setup / Configuration Banner */}
-        <SupabaseBanner isConfigured={isSupabaseConfigured} />
-
-        {/* Phase 1 Overview / Stats Bar */}
+        {/* Pool Summary Stats Bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center space-x-3.5">
+          <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center space-x-3.5 shadow-sm">
             <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold">
               <Calendar className="w-5 h-5" />
             </div>
@@ -100,7 +89,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center space-x-3.5">
+          <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center space-x-3.5 shadow-sm">
             <div className="w-10 h-10 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold">
               <CheckCircle2 className="w-5 h-5" />
             </div>
@@ -112,24 +101,24 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center space-x-3.5">
+          <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center space-x-3.5 shadow-sm">
             <div className="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold">
               <Trophy className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xs text-zinc-400">Your Rank</div>
+              <div className="text-xs text-zinc-400">Your Standing</div>
               <div className="text-base sm:text-lg font-bold text-white">
                 #{MOCK_USER.seasonRank} in Pool
               </div>
             </div>
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center space-x-3.5">
+          <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center space-x-3.5 shadow-sm">
             <div className="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold">
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xs text-zinc-400">First Kickoff</div>
+              <div className="text-xs text-zinc-400">Lock Deadline</div>
               <div className="text-base sm:text-lg font-bold text-white">
                 Thu 8:15 PM ET
               </div>
@@ -141,7 +130,7 @@ export default function Home() {
         {activeTab === "picks" && (
           <div className="space-y-6">
             {/* Action Bar */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
               <div>
                 <h2 className="text-lg font-bold text-white">
                   Week {MOCK_WEEK.weekNumber} Matchups & Selections
@@ -196,7 +185,7 @@ export default function Home() {
                     <span>Monday Night Football Tiebreaker</span>
                   </h3>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Predict the combined total points scored in the Buffalo Bills vs New York Jets game.
+                    Predict the combined total points scored in Buffalo Bills vs New York Jets.
                   </p>
                 </div>
               </div>
@@ -241,12 +230,14 @@ export default function Home() {
         {activeTab === "rules" && <RulesCard />}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-zinc-800 bg-zinc-950 py-6 mt-12 text-center text-xs text-zinc-400">
-        <div className="max-w-7xl mx-auto px-4 space-y-2">
-          <p>NFL Weekly Picks Pool • Built with Next.js, Tailwind CSS & Supabase Ready</p>
-          <p className="text-zinc-400">
-            Phase 1 Foundation • Ready for Vercel deployment
+      {/* Clean Sports App Footer */}
+      <footer className="border-t border-zinc-800 bg-zinc-950 py-6 mt-12 text-center text-xs text-zinc-500">
+        <div className="max-w-7xl mx-auto px-4 space-y-1.5">
+          <p className="text-zinc-400 font-medium">
+            © 2026 NFL Weekly Picks Pool • All game times displayed in US/Eastern
+          </p>
+          <p>
+            Compete weekly with league members • Live standings & straight-up pick&apos;em scoring
           </p>
         </div>
       </footer>

@@ -1,20 +1,24 @@
 "use client";
 
 import React from "react";
-import { Trophy, Calendar, Database, ShieldCheck } from "lucide-react";
+import { Trophy, Calendar, ShieldCheck, User } from "lucide-react";
 
 interface NavbarProps {
   activeTab: "picks" | "leaderboard" | "rules";
   setActiveTab: (tab: "picks" | "leaderboard" | "rules") => void;
-  isSupabaseConfigured: boolean;
   selectedWeek: number;
+  userName?: string;
+  userPoints?: number;
+  userRank?: number;
 }
 
 export function Navbar({
   activeTab,
   setActiveTab,
-  isSupabaseConfigured,
   selectedWeek,
+  userName = "GridironGuru",
+  userPoints = 58,
+  userRank = 2,
 }: NavbarProps) {
   return (
     <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50">
@@ -22,7 +26,7 @@ export function Navbar({
         <div className="flex items-center justify-between h-16">
           {/* Brand Logo & Name */}
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-black tracking-wider">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-black tracking-wider text-base">
               NFL
             </div>
             <div>
@@ -35,7 +39,7 @@ export function Navbar({
                 </span>
               </div>
               <p className="text-xs text-zinc-400 hidden sm:block">
-                Select winners each week & compete on the leaderboard
+                Pick weekly winners & climb the standings
               </p>
             </div>
           </div>
@@ -77,19 +81,20 @@ export function Navbar({
             </button>
           </nav>
 
-          {/* Database / Environment Status */}
-          <div className="hidden md:flex items-center space-x-3">
-            <div
-              className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium border ${
-                isSupabaseConfigured
-                  ? "bg-emerald-950/60 text-emerald-300 border-emerald-800/80"
-                  : "bg-amber-950/40 text-amber-300 border-amber-800/60"
-              }`}
-            >
-              <Database className="w-3.5 h-3.5" />
-              <span>
-                {isSupabaseConfigured ? "Supabase Connected" : "Local Demo Mode"}
-              </span>
+          {/* Participant Profile Pill */}
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2.5 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-xl shadow-inner">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs border border-emerald-500/30">
+                <User className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-left hidden sm:block">
+                <div className="text-xs font-semibold text-white leading-tight">
+                  {userName}
+                </div>
+                <div className="text-[10px] text-zinc-400 leading-tight">
+                  {userPoints} pts • #{userRank} in Pool
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -97,4 +102,3 @@ export function Navbar({
     </header>
   );
 }
-
