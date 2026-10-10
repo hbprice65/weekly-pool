@@ -87,17 +87,31 @@ export function LeaderboardTable({
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-2.5">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 border ${
-                      isGold
-                        ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                        : isSilver
-                        ? "bg-slate-300/20 text-slate-200 border-slate-300/40"
-                        : "bg-amber-700/20 text-amber-600 border-amber-700/40"
-                    }`}
-                  >
-                    #{index + 1}
-                  </div>
+                  {entry.avatarUrl ? (
+                    <img
+                      src={entry.avatarUrl}
+                      alt={entry.displayName}
+                      className={`w-9 h-9 rounded-xl object-cover shrink-0 border ${
+                        isGold
+                          ? "border-amber-500/50"
+                          : isSilver
+                          ? "border-slate-300/50"
+                          : "border-amber-700/50"
+                      }`}
+                    />
+                  ) : (
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 border ${
+                        isGold
+                          ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                          : isSilver
+                          ? "bg-slate-300/20 text-slate-200 border-slate-300/40"
+                          : "bg-amber-700/20 text-amber-600 border-amber-700/40"
+                      }`}
+                    >
+                      #{index + 1}
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <div className="text-sm font-bold text-white truncate max-w-[130px]">
                       {entry.displayName}
@@ -197,21 +211,30 @@ export function LeaderboardTable({
                     )}
                   </div>
 
-                  <div className="min-w-0">
-                    <div className="flex items-center space-x-1.5">
-                      <span className="text-sm font-bold text-white truncate max-w-[130px]">
-                        {entry.displayName}
-                      </span>
-                      {isCurrentUser && (
-                        <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded font-extrabold border border-emerald-500/30 shrink-0">
-                          YOU
+                  <div className="min-w-0 flex items-center space-x-2">
+                    {entry.avatarUrl ? (
+                      <img
+                        src={entry.avatarUrl}
+                        alt={entry.displayName}
+                        className="w-7 h-7 rounded-full object-cover border border-zinc-700 shrink-0"
+                      />
+                    ) : null}
+                    <div className="min-w-0">
+                      <div className="flex items-center space-x-1.5">
+                        <span className="text-sm font-bold text-white truncate max-w-[130px]">
+                          {entry.displayName}
                         </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-zinc-400 flex items-center space-x-2 mt-0.5">
-                      <span>{entry.correctPicks} correct</span>
-                      <span>•</span>
-                      <span>{winPct}% accuracy</span>
+                        {isCurrentUser && (
+                          <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded font-extrabold border border-emerald-500/30 shrink-0">
+                            YOU
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-zinc-400 flex items-center space-x-2 mt-0.5">
+                        <span>{entry.correctPicks} correct</span>
+                        <span>•</span>
+                        <span>{winPct}% accuracy</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -292,9 +315,17 @@ export function LeaderboardTable({
                     {/* Name */}
                     <td className="px-4 py-4 font-medium text-white">
                       <div className="flex items-center space-x-2.5">
-                        <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold text-emerald-400 shrink-0">
-                          {entry.displayName.slice(0, 2).toUpperCase()}
-                        </div>
+                        {entry.avatarUrl ? (
+                          <img
+                            src={entry.avatarUrl}
+                            alt={entry.displayName}
+                            className="w-8 h-8 rounded-full object-cover border border-zinc-700 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold text-emerald-400 shrink-0">
+                            {entry.displayName.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
                         <div className="flex items-center space-x-2 truncate">
                           <span className="truncate">{entry.displayName}</span>
                           {isCurrentUser && (

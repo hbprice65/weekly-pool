@@ -23,6 +23,7 @@ interface NavbarProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   userName?: string;
+  userAvatar?: string;
   userPoints?: number;
   userRank?: number;
   isAuthenticated?: boolean;
@@ -37,6 +38,7 @@ export function Navbar({
   onRefresh,
   isRefreshing = false,
   userName = "GridironGuru",
+  userAvatar,
   userPoints = 58,
   userRank = 2,
   isAuthenticated = false,
@@ -188,19 +190,27 @@ export function Navbar({
               className="flex items-center space-x-2 bg-zinc-900/90 hover:bg-zinc-800/90 border border-zinc-800 hover:border-zinc-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl transition text-left active:scale-95 touch-manipulation group"
               title="Click to manage account or switch user"
             >
-              <div
-                className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg font-bold flex items-center justify-center text-xs shrink-0 border ${
-                  isAuthenticated
-                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                    : "bg-zinc-800 text-zinc-300 border-zinc-700"
-                }`}
-              >
-                {isAuthenticated ? (
-                  <User className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                ) : (
-                  <LogIn className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-zinc-400" />
-                )}
-              </div>
+              {userAvatar && isAuthenticated ? (
+                <img
+                  src={userAvatar}
+                  alt={userName}
+                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg object-cover border border-emerald-500/40 shrink-0"
+                />
+              ) : (
+                <div
+                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg font-bold flex items-center justify-center text-xs shrink-0 border ${
+                    isAuthenticated
+                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                      : "bg-zinc-800 text-zinc-300 border-zinc-700"
+                  }`}
+                >
+                  {isAuthenticated ? (
+                    <User className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  ) : (
+                    <LogIn className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-zinc-400" />
+                  )}
+                </div>
+              )}
               <div className="text-left hidden xs:block">
                 <div className="text-[11px] sm:text-xs font-semibold text-white leading-tight max-w-[80px] sm:max-w-[120px] truncate group-hover:text-emerald-300 transition-colors">
                   {isAuthenticated ? userName : "Sign In"}

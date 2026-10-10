@@ -7,6 +7,7 @@ import { WeeklyScoreboard } from "@/components/WeeklyScoreboard";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
 import { RulesCard } from "@/components/RulesCard";
 import { AuthModal } from "@/components/AuthModal";
+import { createClient } from "@/lib/supabase/client";
 import { MOCK_WEEK, MOCK_LEADERBOARD, MOCK_USER } from "@/lib/mock-data";
 import {
   getCurrentUser,
@@ -47,12 +48,85 @@ export default function Home() {
   } | null>(null);
 
   // Authentication & Supabase state
-  const [currentUser, setCurrentUser] = useState<{ id: string; email?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    email?: string;
+    name?: string;
+    avatarUrl?: string;
+    provider?: string;
+  } | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
   const [weekGames, setWeekGames] = useState<Game[]>(MOCK_WEEK.games);
 
-  // 1. Sync tab with URL hash if present
+  // 1. Listen to Supabase Auth state changes (Google OAuth callbacks, logout, session refresh)
+  useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) return;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const user = session.user;
+        const metadata = user.user_metadata || {};
+        const name =
+          metadata.full_name ||
+          metadata.name ||
+          user.email?.split("@")[0] ||
+          "Player";
+        const avatarUrl = metadata.avatar_url || metadata.picture;
+        const provider =
+          user.app_metadata?.provider ||
+          user.identities?.[0]?.provider ||
+          "email";
+
+        setCurrentUser({
+          id: user.id,
+          email: user.email,
+          name,
+          avatarUrl,
+          provider,
+        });
+
+        // Background sync to public.profiles so Google users show on the leaderboard
+        try {
+          await supabase.from("profiles").upsert(
+            {
+              id: user.id,
+              display_name: name,
+              avatar_url: avatarUrl,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "id" }
+          );
+        } catch {
+          // Ignore if handled by trigger or policies
+        }
+      } else {
+        setCurrentUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // 2. Check for OAuth callback errors in URL
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("auth_error")) {
+        setIsAuthOpen(true);
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("auth_error");
+        window.history.replaceState(null, "", cleanUrl.toString());
+      }
+    }
+  }, []);
+
+  // 3. Sync tab with URL hash if present
   useEffect(() => {
     const handleHashChange = () => {
       if (typeof window !== "undefined") {
@@ -70,7 +144,7 @@ export default function Home() {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
-  // 2. Detect live active NFL week on initial mount if not specified in URL
+  // 4. Detect live active NFL week on initial mount if not specified in URL
   useEffect(() => {
     let isMounted = true;
     fetchCurrentActiveNFLWeek().then(({ currentWeek }) => {
@@ -116,7 +190,25 @@ export default function Home() {
       // 3. Fetch authenticated user & saved picks for this specific week
       const user = await getCurrentUser();
       if (user) {
-        setCurrentUser({ id: user.id, email: user.email });
+        const metadata = user.user_metadata || {};
+        const name =
+          metadata.full_name ||
+          metadata.name ||
+          user.email?.split("@")[0] ||
+          "Player";
+        const avatarUrl = metadata.avatar_url || metadata.picture;
+        const provider =
+          user.app_metadata?.provider ||
+          user.identities?.[0]?.provider ||
+          "email";
+
+        setCurrentUser({
+          id: user.id,
+          email: user.email,
+          name,
+          avatarUrl,
+          provider,
+        });
 
         const { picks, mnfScore } = await fetchUserPicksFromSupabase(user.id, weekNum);
         if (Object.keys(picks).length > 0) {
@@ -270,9 +362,9 @@ export default function Home() {
   const myPoints = myEntry ? myEntry.totalPoints : (currentUser ? 0 : MOCK_USER.totalPoints);
   const myWeeklyPoints = myEntry ? myEntry.weeklyPoints : 0;
 
-  const displayName = currentUser?.email
-    ? currentUser.email.split("@")[0]
-    : MOCK_USER.displayName;
+  const displayName =
+    currentUser?.name ||
+    (currentUser?.email ? currentUser.email.split("@")[0] : MOCK_USER.displayName);
 
   // Identify Monday Night Football tiebreaker game dynamically
   const mnfGame =
@@ -290,6 +382,7 @@ export default function Home() {
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
         userName={displayName}
+        userAvatar={currentUser?.avatarUrl}
         userPoints={currentUser ? myPoints : MOCK_USER.totalPoints}
         userRank={currentUser ? myRank : MOCK_USER.seasonRank}
         isAuthenticated={!!currentUser}
@@ -303,7 +396,9 @@ export default function Home() {
             <div className="flex items-center space-x-2">
               <CloudCheck className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>
-                Connected to Supabase as <strong>{currentUser.email}</strong> • Week {selectedWeek} picks auto-synced
+                Connected to Supabase as{" "}
+                <strong>{currentUser.name || currentUser.email}</strong> • Week{" "}
+                {selectedWeek} picks auto-synced
               </span>
             </div>
             <button

@@ -198,7 +198,33 @@ export async function saveUserPicksToSupabase(
       updated_at: new Date().toISOString(),
     }));
 
-    // Upsert picks into public.picks
+    // 1. Ensure profile exists in public.profiles with display name & avatar
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user && userData.user.id === userId) {
+        const metadata = userData.user.user_metadata || {};
+        const displayName =
+          metadata.full_name ||
+          metadata.name ||
+          userData.user.email?.split("@")[0] ||
+          "Player";
+        const avatarUrl = metadata.avatar_url || metadata.picture || null;
+
+        await supabase.from("profiles").upsert(
+          {
+            id: userId,
+            display_name: displayName,
+            avatar_url: avatarUrl,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        );
+      }
+    } catch {
+      // Non-blocking fallback
+    }
+
+    // 2. Upsert picks into public.picks
     const { error: picksError } = await supabase
       .from("picks")
       .upsert(rowsToUpsert, { onConflict: "user_id,game_id" });

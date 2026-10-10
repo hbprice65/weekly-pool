@@ -262,7 +262,14 @@ export function WeeklyScoreboard({
                           <span className="text-zinc-400 text-[10px] font-bold w-4 text-center shrink-0">
                             #{rank}
                           </span>
-                          <span className="text-white text-xs font-bold truncate max-w-[90px] sm:max-w-[120px]">
+                          {entry.avatarUrl && (
+                            <img
+                              src={entry.avatarUrl}
+                              alt=""
+                              className="w-4 h-4 rounded-full object-cover shrink-0 border border-zinc-700"
+                            />
+                          )}
+                          <span className="text-white text-xs font-bold truncate max-w-[85px] sm:max-w-[110px]">
                             {entry.displayName}
                           </span>
                           {isCurrent && (
@@ -608,27 +615,36 @@ export function WeeklyScoreboard({
                       )}
                     </div>
 
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm font-bold text-white">
-                          {entry.displayName}
-                        </span>
-                        {isCurrent && (
-                          <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 py-0.2 rounded font-extrabold border border-emerald-500/30">
-                            YOU
+                    <div className="flex items-center space-x-2.5">
+                      {entry.avatarUrl && (
+                        <img
+                          src={entry.avatarUrl}
+                          alt=""
+                          className="w-7 h-7 rounded-full object-cover shrink-0 border border-zinc-700"
+                        />
+                      )}
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-bold text-white">
+                            {entry.displayName}
                           </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-zinc-400 flex items-center space-x-2 mt-0.5">
-                        <span>{entry.weeklyPoints} of {finalGamesCount} correct</span>
-                        {entry.predictedMnfScore !== undefined && (
-                          <>
-                            <span>•</span>
-                            <span className="text-purple-300">
-                              MNF Pred: {entry.predictedMnfScore} pts
+                          {isCurrent && (
+                            <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 py-0.2 rounded font-extrabold border border-emerald-500/30">
+                              YOU
                             </span>
-                          </>
-                        )}
+                          )}
+                        </div>
+                        <div className="text-[11px] text-zinc-400 flex items-center space-x-2 mt-0.5">
+                          <span>{entry.weeklyPoints} of {finalGamesCount} correct</span>
+                          {entry.predictedMnfScore !== undefined && (
+                            <>
+                              <span>•</span>
+                              <span className="text-purple-300">
+                                MNF Pred: {entry.predictedMnfScore} pts
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
