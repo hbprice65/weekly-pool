@@ -309,13 +309,14 @@ export default function Home() {
         currentUser.id,
         userPicks,
         mnfPrediction,
-        selectedWeek
+        selectedWeek,
+        weekGames
       );
 
       if (res.success) {
         setSaveStatus({
           type: "success",
-          message: `Week ${selectedWeek} picks saved to Supabase for ${currentUser.email || "user"}!`,
+          message: `Week ${selectedWeek} picks saved to Supabase for ${currentUser.name || currentUser.email || "user"}!`,
         });
         const updatedBoard = await fetchLiveLeaderboard(selectedWeek, weekGames);
         if (updatedBoard && updatedBoard.length > 0) {
@@ -324,7 +325,7 @@ export default function Home() {
       } else {
         setSaveStatus({
           type: "error",
-          message: `Saved locally. Notice: ${res.error || "Check database games"}.`,
+          message: `Saved locally. Database sync notice: ${res.error || "Check database games"}.`,
         });
       }
     } else {
@@ -336,9 +337,10 @@ export default function Home() {
 
     setIsSaving(false);
 
+    // Keep error visible longer (10s) so user has time to read troubleshooting steps
     setTimeout(() => {
       setSaveStatus(null);
-    }, 5000);
+    }, 10000);
   };
 
   const handleStepMnf = (delta: number) => {

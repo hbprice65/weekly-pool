@@ -173,7 +173,8 @@ export async function saveUserPicksToSupabase(
   userId: string,
   picks: Record<string, string>,
   mnfScore?: string | number,
-  weekNumber?: number
+  weekNumber?: number,
+  games?: Game[]
 ): Promise<SavePicksResult> {
   const targetWeek = weekNumber ?? calculateFallbackWeek();
   const supabase = createClient();
@@ -191,6 +192,27 @@ export async function saveUserPicksToSupabase(
       return { success: true, savedCount: 0, userId };
     }
 
+    // 1. If games are provided, ensure they exist in public.games so picks are linked
+    if (games && games.length > 0) {
+      try {
+        const gameRows = games.map((g) => ({
+          id: g.id,
+          week_number: g.weekNumber ?? targetWeek,
+          season_year: g.seasonYear ?? 2026,
+          away_team: g.awayTeam.id,
+          home_team: g.homeTeam.id,
+          kickoff_time: g.kickoffTime,
+          status: g.status,
+          away_score: g.awayScore ?? null,
+          home_score: g.homeScore ?? null,
+          winner_team: g.winnerTeamId || null,
+        }));
+        await supabase.from("games").upsert(gameRows, { onConflict: "id" });
+      } catch {
+        // Non-blocking fallback
+      }
+    }
+
     const rowsToUpsert = pickEntries.map(([gameId, selectedTeam]) => ({
       user_id: userId,
       game_id: gameId,
@@ -198,7 +220,7 @@ export async function saveUserPicksToSupabase(
       updated_at: new Date().toISOString(),
     }));
 
-    // 1. Ensure profile exists in public.profiles with display name & avatar
+    // 2. Ensure profile exists in public.profiles with display name & avatar
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (userData?.user && userData.user.id === userId) {
@@ -224,14 +246,20 @@ export async function saveUserPicksToSupabase(
       // Non-blocking fallback
     }
 
-    // 2. Upsert picks into public.picks
+    // 3. Upsert picks into public.picks
     const { error: picksError } = await supabase
       .from("picks")
       .upsert(rowsToUpsert, { onConflict: "user_id,game_id" });
 
     if (picksError) {
       console.error("Error upserting picks into Supabase:", picksError);
-      return { success: false, error: picksError.message, userId };
+      const isRls =
+        picksError.message.toLowerCase().includes("row-level security") ||
+        picksError.message.toLowerCase().includes("policy");
+      const errorMsg = isRls
+        ? "RLS policy error on table 'picks'. Run 'supabase/fix_picks_rls.sql' in Supabase SQL Editor to enable picks permissions."
+        : picksError.message;
+      return { success: false, error: errorMsg, userId };
     }
 
     // Upsert tiebreaker for target week
