@@ -20,10 +20,25 @@
 # production
 /build
 
-# misc
+# misc & OS files
 .DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
 *.pem
 *.exe
+
+# IDE & editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
 
 # debug
 npm-debug.log*
@@ -37,6 +52,9 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# supabase local development
+.supabase/
 
 # typescript
 *.tsbuildinfo

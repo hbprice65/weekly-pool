@@ -196,33 +196,110 @@ create policy "Creators can update own pools"
   on public.pools for update using (auth.uid() = creator_id);
 
 -- Pool Members: Public select, self-enroll
+-- Pool Members: Public select, self-enroll strictly as member
 create policy "Pool members are viewable by everyone"
   on public.pool_members for select using (true);
 create policy "Users can join pools"
-  on public.pool_members for insert with check (auth.uid() = user_id);
+  on public.pool_members for insert with check (auth.uid() = user_id and role = 'member');
 create policy "Users can leave pools"
   on public.pool_members for delete using (auth.uid() = user_id);
 
--- Games: Public select, seamless sync from app/server
+-- Games: Public read-only; admin/server manages schedule
 create policy "Games are viewable by everyone"
   on public.games for select using (true);
-create policy "Games can be synced"
-  on public.games for all using (true) with check (true);
 
--- Picks: Public view (for leaderboard & scoreboard), user manages own picks
-create policy "Picks are viewable by everyone"
-  on public.picks for select using (true);
+-- Picks: Privacy before kickoff; deadline enforcement
+create policy "Users can view picks"
+  on public.picks for select
+  using (
+    auth.uid() = user_id
+    or exists (
+      select 1 from public.games
+      where games.id = picks.game_id
+      and games.kickoff_time <= now()
+    )
+  );
+
 create policy "Users can insert their own picks"
-  on public.picks for insert with check (auth.uid() = user_id);
-create policy "Users can update their own picks"
-  on public.picks for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "Users can delete their own picks"
-  on public.picks for delete using (auth.uid() = user_id);
+  on public.picks for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.games
+      where games.id = picks.game_id
+      and games.kickoff_time > now()
+    )
+  );
 
--- Tiebreakers: Public view, user manages own tiebreakers
-create policy "Tiebreakers are viewable by everyone"
-  on public.tiebreakers for select using (true);
+create policy "Users can update their own picks"
+  on public.picks for update
+  using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.games
+      where games.id = picks.game_id
+      and games.kickoff_time > now()
+    )
+  )
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.games
+      where games.id = picks.game_id
+      and games.kickoff_time > now()
+    )
+  );
+
+create policy "Users can delete their own picks"
+  on public.picks for delete
+  using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.games
+      where games.id = picks.game_id
+      and games.kickoff_time > now()
+    )
+  );
+
+-- Tiebreakers: Hidden until Monday Night Football kickoff
+create or replace function public.is_week_tiebreaker_locked(p_week int)
+returns boolean as $$
+  select coalesce(
+    (
+      select min(kickoff_time) <= now()
+      from public.games
+      where week_number = p_week and is_monday_night = true
+    ),
+    (
+      select max(kickoff_time) <= now()
+      from public.games
+      where week_number = p_week
+    ),
+    false
+  );
+$$ language sql stable security definer;
+
+create policy "Users can view tiebreakers"
+  on public.tiebreakers for select
+  using (
+    auth.uid() = user_id
+    or public.is_week_tiebreaker_locked(week_number) = true
+  );
+
 create policy "Users can insert their own tiebreakers"
-  on public.tiebreakers for insert with check (auth.uid() = user_id);
+  on public.tiebreakers for insert
+  with check (
+    auth.uid() = user_id
+    and public.is_week_tiebreaker_locked(week_number) = false
+  );
+
 create policy "Users can update their own tiebreakers"
-  on public.tiebreakers for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  on public.tiebreakers for update
+  using (
+    auth.uid() = user_id
+    and public.is_week_tiebreaker_locked(week_number) = false
+  )
+  with check (
+    auth.uid() = user_id
+    and public.is_week_tiebreaker_locked(week_number) = false
+  );

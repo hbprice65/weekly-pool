@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Game } from "@/types";
 import { CheckCircle2, Clock, Tv, XCircle } from "lucide-react";
 
@@ -34,10 +34,17 @@ export function GameCard({
   const isAwaySelected = selectedTeamId === game.awayTeam.id;
   const isHomeSelected = selectedTeamId === game.homeTeam.id;
 
+  const [isPastKickoff, setIsPastKickoff] = useState<boolean>(false);
+  useEffect(() => {
+    queueMicrotask(() => {
+      setIsPastKickoff(new Date(game.kickoffTime).getTime() <= Date.now());
+    });
+  }, [game.kickoffTime]);
+
   const isFinal = game.status === "FINAL";
   const isLive = game.status === "IN_PROGRESS";
-  // Game is locked if explicitly locked or if it has already kicked off (in progress or final)
-  const effectivelyLocked = isLocked || isFinal || isLive;
+  // Game is locked if explicitly locked, completed, in progress, or past scheduled kickoff time
+  const effectivelyLocked = isLocked || isFinal || isLive || isPastKickoff;
 
   const awayWon = isFinal && game.winnerTeamId === game.awayTeam.id;
   const homeWon = isFinal && game.winnerTeamId === game.homeTeam.id;
@@ -61,6 +68,11 @@ export function GameCard({
             <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider flex items-center space-x-1 animate-pulse">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               <span>LIVE • {game.statusDetail || "In Progress"}</span>
+            </span>
+          ) : isPastKickoff ? (
+            <span className="bg-amber-950/80 text-amber-300 border border-amber-800/80 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider flex items-center space-x-1">
+              <Clock className="w-3 h-3 text-amber-400 shrink-0" />
+              <span>LOCKED • Kickoff Passed</span>
             </span>
           ) : (
             <span className="flex items-center space-x-1 font-medium text-zinc-300">

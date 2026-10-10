@@ -1,6 +1,18 @@
 import { Game, GameStatus, NFLTeam, Week } from "@/types";
 import { NFL_TEAMS } from "@/lib/nfl-data";
 import { createClient } from "@/lib/supabase/client";
+import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
+
+function getSyncClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (supabaseUrl && serviceKey && serviceKey !== "your-service-role-key") {
+    return createSupabaseAdminClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return createClient();
+}
 
 export interface NFLScoreboardResponse {
   week: Week;
@@ -279,7 +291,7 @@ export async function syncScheduleToSupabase(
   weekNumber: number,
   seasonYear: number = 2026
 ): Promise<{ success: boolean; syncedCount: number; error?: string }> {
-  const supabase = createClient();
+  const supabase = getSyncClient();
   if (!supabase) {
     return { success: false, syncedCount: 0, error: "Supabase client not initialized" };
   }

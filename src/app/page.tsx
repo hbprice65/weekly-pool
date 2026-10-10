@@ -118,7 +118,9 @@ export default function Home() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("auth_error")) {
-        setIsAuthOpen(true);
+        queueMicrotask(() => {
+          setIsAuthOpen(true);
+        });
         const cleanUrl = new URL(window.location.href);
         cleanUrl.searchParams.delete("auth_error");
         window.history.replaceState(null, "", cleanUrl.toString());

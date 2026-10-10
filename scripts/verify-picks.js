@@ -41,13 +41,11 @@ async function verify() {
   console.log("==================================================");
   console.log("Connected to:", supabaseUrl);
 
-  // 1. Check Weeks
-  const { data: weeks, error: weeksErr } = await supabase.from("weeks").select("*");
-  if (weeksErr) {
-    console.error("❌ Weeks query failed:", weeksErr.message);
-  } else {
-    console.log(`\n📅 Weeks configured in DB: ${weeks.length}`);
-    weeks.forEach((w) => console.log(`   - Week ${w.week_number}: ${w.title} (Locked: ${w.lock_date})`));
+  // 1. Check Pools
+  const { data: pools, error: poolsErr } = await supabase.from("pools").select("id, name, league, season_year");
+  if (!poolsErr && pools && pools.length > 0) {
+    console.log(`\n🏆 Pools configured in DB: ${pools.length}`);
+    pools.forEach((p) => console.log(`   - Pool: ${p.name} (${p.league.toUpperCase()} ${p.season_year})`));
   }
 
   // 2. Check Games

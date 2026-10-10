@@ -195,35 +195,21 @@ export async function saveUserPicksToSupabase(
       return { success: true, savedCount: 0, userId };
     }
 
-    // 1. If games are provided, ensure they exist in public.games so picks are linked
-    if (games && games.length > 0) {
-      try {
-        const gameRows = games.map((g) => ({
-          id: g.id,
-          week_number: g.weekNumber ?? targetWeek,
-          season_year: g.seasonYear ?? 2026,
-          away_team: g.awayTeam.id,
-          home_team: g.homeTeam.id,
-          kickoff_time: g.kickoffTime,
-          status: g.status,
-          away_score: g.awayScore ?? null,
-          home_score: g.homeScore ?? null,
-          winner_team: g.winnerTeamId || null,
-        }));
-        await supabase.from("games").upsert(gameRows, { onConflict: "id" });
-      } catch {
-        // Non-blocking fallback
-      }
+    const now = Date.now();
+    // Validate on the client that we only attempt to save picks for games that have not kicked off
+    const pickEntriesToSave = pickEntries.filter(([gameId]) => {
+      const g = games?.find((game) => game.id === gameId);
+      if (!g) return true;
+      const isPastKickoff = new Date(g.kickoffTime).getTime() <= now;
+      const isLiveOrFinal = g.status === "IN_PROGRESS" || g.status === "FINAL";
+      return !isPastKickoff && !isLiveOrFinal;
+    });
+
+    if (pickEntriesToSave.length === 0 && (!mnfScore || mnfScore === "")) {
+      return { success: true, savedCount: 0, userId };
     }
 
-    const rowsToUpsert = pickEntries.map(([gameId, selectedTeam]) => ({
-      user_id: userId,
-      game_id: gameId,
-      selected_team: selectedTeam,
-      updated_at: new Date().toISOString(),
-    }));
-
-    // 2. Ensure profile exists in public.profiles with display name & avatar
+    // 1. Ensure profile exists in public.profiles with display name & avatar
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (userData?.user && userData.user.id === userId) {
@@ -249,53 +235,67 @@ export async function saveUserPicksToSupabase(
       // Non-blocking fallback
     }
 
-    // 3. Upsert picks into public.picks (V2 schema with pool_id, fallback to V1)
-    const rowsV2 = pickEntries.map(([gameId, selectedTeam]) => ({
-      pool_id: DEFAULT_POOL_ID,
-      user_id: userId,
-      game_id: gameId,
-      week_number: targetWeek,
-      selected_team: selectedTeam,
-      updated_at: new Date().toISOString(),
-    }));
-
-    let { error: picksError } = await supabase
-      .from("picks")
-      .upsert(rowsV2, { onConflict: "pool_id,user_id,game_id" });
-
-    // Fallback to V1 schema if pool_id column does not exist yet
-    if (
-      picksError &&
-      (picksError.message.includes("pool_id") ||
-        picksError.message.includes("column") ||
-        picksError.code === "PGRST204" ||
-        picksError.code === "42703")
-    ) {
-      const rowsV1 = pickEntries.map(([gameId, selectedTeam]) => ({
+    // 2. Upsert picks into public.picks (V2 schema with pool_id, fallback to V1)
+    let savedCount = 0;
+    if (pickEntriesToSave.length > 0) {
+      const rowsV2 = pickEntriesToSave.map(([gameId, selectedTeam]) => ({
+        pool_id: DEFAULT_POOL_ID,
         user_id: userId,
         game_id: gameId,
+        week_number: targetWeek,
         selected_team: selectedTeam,
         updated_at: new Date().toISOString(),
       }));
-      const resV1 = await supabase
+
+      let { error: picksError } = await supabase
         .from("picks")
-        .upsert(rowsV1, { onConflict: "user_id,game_id" });
-      picksError = resV1.error;
+        .upsert(rowsV2, { onConflict: "pool_id,user_id,game_id" });
+
+      // Fallback to V1 schema if pool_id column does not exist yet
+      if (
+        picksError &&
+        (picksError.message.includes("pool_id") ||
+          picksError.message.includes("column") ||
+          picksError.code === "PGRST204" ||
+          picksError.code === "42703")
+      ) {
+        const rowsV1 = pickEntriesToSave.map(([gameId, selectedTeam]) => ({
+          user_id: userId,
+          game_id: gameId,
+          selected_team: selectedTeam,
+          updated_at: new Date().toISOString(),
+        }));
+        const resV1 = await supabase
+          .from("picks")
+          .upsert(rowsV1, { onConflict: "user_id,game_id" });
+        picksError = resV1.error;
+      }
+
+      if (picksError) {
+        console.error("Error upserting picks into Supabase:", picksError);
+        const isRls =
+          picksError.message.toLowerCase().includes("row-level security") ||
+          picksError.message.toLowerCase().includes("policy");
+        const errorMsg = isRls
+          ? "Picks cannot be submitted or changed after a game kicks off."
+          : picksError.message;
+        return { success: false, error: errorMsg, userId };
+      }
+      savedCount = pickEntriesToSave.length;
     }
 
-    if (picksError) {
-      console.error("Error upserting picks into Supabase:", picksError);
-      const isRls =
-        picksError.message.toLowerCase().includes("row-level security") ||
-        picksError.message.toLowerCase().includes("policy");
-      const errorMsg = isRls
-        ? "RLS policy error on table 'picks'. Please run 'supabase/schema_v2.sql' in your Supabase SQL Editor."
-        : picksError.message;
-      return { success: false, error: errorMsg, userId };
-    }
+    // Upsert tiebreaker for target week (only before MNF kickoff)
+    const mnfGame =
+      games?.find((g) => g.isMondayNight) ||
+      (games && games.length > 0 ? games[games.length - 1] : undefined);
+    const isMnfStarted = Boolean(
+      mnfGame &&
+        (new Date(mnfGame.kickoffTime).getTime() <= now ||
+          mnfGame.status === "IN_PROGRESS" ||
+          mnfGame.status === "FINAL")
+    );
 
-    // Upsert tiebreaker for target week (V2 with pool_id, fallback to V1)
-    if (mnfScore !== undefined && mnfScore !== "") {
+    if (mnfScore !== undefined && mnfScore !== "" && !isMnfStarted) {
       const parsedScore =
         typeof mnfScore === "number" ? mnfScore : parseInt(mnfScore, 10);
       if (!isNaN(parsedScore)) {
@@ -338,7 +338,7 @@ export async function saveUserPicksToSupabase(
 
     return {
       success: true,
-      savedCount: rowsToUpsert.length,
+      savedCount,
       userId,
     };
   } catch (err: unknown) {
@@ -417,7 +417,8 @@ export async function fetchLiveLeaderboard(
     const tiebreakersMap: Record<string, number> = {};
     if (allTiebreakers) {
       for (const t of allTiebreakers) {
-        const val = (t as any).predicted_score ?? (t as any).predicted_mnf_score;
+        const record = t as Record<string, unknown>;
+        const val = record.predicted_score ?? record.predicted_mnf_score;
         if (val !== undefined && val !== null) {
           tiebreakersMap[t.user_id] = Number(val);
         }
@@ -454,15 +455,15 @@ export async function fetchLiveLeaderboard(
         }
         userStatsMap[p.user_id].totalPicks += 1;
 
-        // Evaluate whether this pick won
-        const isWinner =
-          p.is_correct === true ||
-          (game &&
-            (game.status === "FINAL" || game.winner_team) &&
-            game.winner_team === p.selected_team);
+        // Evaluate whether this pick won based strictly on verified game winner
+        const isWinner = Boolean(
+          game &&
+          (game.status === "FINAL" || Boolean(game.winner_team)) &&
+          game.winner_team === p.selected_team
+        );
 
         if (isWinner) {
-          const pts = (p as any).points ?? p.points_awarded ?? 1;
+          const pts = 1;
           userStatsMap[p.user_id].totalPoints += pts;
           userStatsMap[p.user_id].totalCorrect += 1;
 

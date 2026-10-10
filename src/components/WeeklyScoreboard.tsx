@@ -37,7 +37,9 @@ export function WeeklyScoreboard({
   // Track client-side time for kickoff calculations (prevents hydration mismatch)
   const [nowTime, setNowTime] = useState<number>(0);
   useEffect(() => {
-    setNowTime(Date.now());
+    queueMicrotask(() => {
+      setNowTime(Date.now());
+    });
     const interval = setInterval(() => {
       setNowTime(Date.now());
     }, 30000);
@@ -328,6 +330,36 @@ export function WeeklyScoreboard({
                       {/* Pick Cells for Each Game */}
                       {games.map((g) => {
                         const pickedTeam = entry.picks ? entry.picks[g.id] : undefined;
+                        const isGameKickoffPassed = Boolean(
+                          nowTime > 0 && new Date(g.kickoffTime).getTime() <= nowTime
+                        );
+                        const isGameStarted =
+                          g.status === "IN_PROGRESS" ||
+                          g.status === "FINAL" ||
+                          isGameKickoffPassed;
+
+                        // Privacy check: Opponents cannot view picks until the game kicks off
+                        if (!isGameStarted && !isCurrent) {
+                          return (
+                            <td
+                              key={g.id}
+                              className="px-2 py-2 text-center whitespace-nowrap border-r border-zinc-800/60"
+                            >
+                              {pickedTeam ? (
+                                <div
+                                  className="inline-flex items-center justify-center space-x-1 px-1.5 py-1 rounded-md text-[10px] font-medium bg-zinc-800/80 border border-zinc-700/60 text-zinc-400"
+                                  title="Pick hidden until kickoff"
+                                >
+                                  <Lock className="w-2.5 h-2.5 text-zinc-400 shrink-0" />
+                                  <span>Hidden</span>
+                                </div>
+                              ) : (
+                                <span className="text-zinc-600 font-mono text-[10px]">—</span>
+                              )}
+                            </td>
+                          );
+                        }
+
                         const isWinner = g.status === "FINAL" && g.winnerTeamId === pickedTeam;
                         const isLoser =
                           g.status === "FINAL" &&

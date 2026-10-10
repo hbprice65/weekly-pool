@@ -4,7 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") ?? "/";
+  const rawNext = requestUrl.searchParams.get("next") ?? "/";
+  // Enforce safe relative redirect path (must start with single '/', never '//' or external scheme)
+  const safeNext =
+    rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
   const origin = requestUrl.origin;
 
   if (code) {
@@ -12,20 +15,12 @@ export async function GET(request: NextRequest) {
     if (supabase) {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (!error) {
-        const forwardedHost = request.headers.get("x-forwarded-host");
-        const isLocalEnv = process.env.NODE_ENV === "development";
-        if (isLocalEnv) {
-          return NextResponse.redirect(`${origin}${next}`);
-        } else if (forwardedHost) {
-          return NextResponse.redirect(`https://${forwardedHost}${next}`);
-        } else {
-          return NextResponse.redirect(`${origin}${next}`);
-        }
+        return NextResponse.redirect(new URL(safeNext, origin));
       }
       console.error("Supabase OAuth code exchange error:", error.message);
     }
   }
 
   // Fallback to home with error parameter if code exchange fails
-  return NextResponse.redirect(`${origin}/?auth_error=oauth_exchange_failed`);
+  return NextResponse.redirect(new URL("/?auth_error=oauth_exchange_failed", origin));
 }
