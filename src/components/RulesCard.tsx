@@ -46,7 +46,7 @@ export function RulesCard() {
             <span>3. Monday Night Football Tiebreaker</span>
           </h3>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            In the event of a tie for top weekly points, the participant whose predicted Monday Night Football combined total score is closest to the actual game total wins the tiebreaker.
+            In the event of a tie for top weekly points, the participant whose predicted Monday Night Football combined total score is closest to the actual game total wins the tiebreaker. To prevent tactical copying, all tiebreaker predictions remain private and hidden from other pool members until the MNF game officially kicks off.
           </p>
         </div>
 

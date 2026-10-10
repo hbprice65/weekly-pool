@@ -611,7 +611,7 @@ export default function Home() {
                         ? `${mnfGame.awayTeam.fullName} vs ${mnfGame.homeTeam.fullName}`
                         : "the final weekly matchup"}
                     </strong>
-                    .
+                    . Predictions remain locked and hidden from other players until kickoff.
                   </p>
                 </div>
               </div>

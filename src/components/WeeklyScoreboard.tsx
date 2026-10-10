@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Game, LeaderboardEntry } from "@/types";
 import {
   Activity,
@@ -10,6 +10,7 @@ import {
   Search,
   Trophy,
   RefreshCw,
+  Lock,
 } from "lucide-react";
 
 interface WeeklyScoreboardProps {
@@ -32,6 +33,30 @@ export function WeeklyScoreboard({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterGameStatus, setFilterGameStatus] = useState<"ALL" | "FINAL" | "SCHEDULED">("ALL");
   const [activeSubView, setActiveSubView] = useState<"matrix" | "games" | "standings">("matrix");
+
+  // Track client-side time for kickoff calculations (prevents hydration mismatch)
+  const [nowTime, setNowTime] = useState<number>(0);
+  useEffect(() => {
+    setNowTime(Date.now());
+    const interval = setInterval(() => {
+      setNowTime(Date.now());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Identify Monday Night Football tiebreaker game dynamically
+  const mnfGame = games.find((g) => g.isMondayNight) || games[games.length - 1];
+
+  // A game has started if its status is IN_PROGRESS or FINAL, or if scheduled kickoff has passed
+  const isMnfKickoffPassed = Boolean(
+    mnfGame && nowTime > 0 && new Date(mnfGame.kickoffTime).getTime() <= nowTime
+  );
+  const isMnfStarted = Boolean(
+    mnfGame &&
+      (mnfGame.status === "IN_PROGRESS" ||
+        mnfGame.status === "FINAL" ||
+        isMnfKickoffPassed)
+  );
 
   // Sort entries for this week by weeklyPoints descending
   const weeklySortedEntries = [...entries].sort((a, b) => {
@@ -179,6 +204,12 @@ export function WeeklyScoreboard({
               <span className="text-[11px] text-zinc-400 hidden xs:inline">
                 • Scroll horizontally to view all matchups
               </span>
+              {!isMnfStarted && (
+                <span className="text-[11px] text-purple-300/90 hidden md:inline-flex items-center space-x-1">
+                  • <Lock className="w-3 h-3 ml-1 text-purple-400 inline" />
+                  <span>Tiebreaker predictions hidden until MNF kickoff</span>
+                </span>
+              )}
             </div>
 
             <div className="flex items-center space-x-2 text-xs">
@@ -235,8 +266,15 @@ export function WeeklyScoreboard({
                       </div>
                     </th>
                   ))}
-                  <th scope="col" className="px-3 py-3 text-center whitespace-nowrap w-20">
-                    MNF Tie
+                  <th scope="col" className="px-3 py-3 text-center whitespace-nowrap w-24">
+                    <div className="inline-flex items-center justify-center space-x-1">
+                      <span>MNF Tie</span>
+                      {!isMnfStarted && (
+                        <span title="Tiebreaker predictions remain hidden until MNF kickoff">
+                          <Lock className="w-3 h-3 text-purple-400 shrink-0" />
+                        </span>
+                      )}
+                    </div>
                   </th>
                 </tr>
               </thead>
@@ -324,8 +362,31 @@ export function WeeklyScoreboard({
                       })}
 
                       {/* MNF Tiebreaker */}
-                      <td className="px-3 py-3 text-center whitespace-nowrap text-purple-300 font-bold text-xs">
-                        {entry.predictedMnfScore !== undefined ? `${entry.predictedMnfScore}` : "—"}
+                      <td className="px-3 py-3 text-center whitespace-nowrap font-bold text-xs">
+                        {entry.predictedMnfScore !== undefined ? (
+                          isMnfStarted ? (
+                            <span className="text-purple-300 font-bold">
+                              {entry.predictedMnfScore}
+                            </span>
+                          ) : isCurrent ? (
+                            <div className="inline-flex items-center justify-center space-x-1 text-purple-300 font-bold">
+                              <span>{entry.predictedMnfScore}</span>
+                              <span className="text-[9px] text-purple-400/80 font-normal">
+                                (You)
+                              </span>
+                            </div>
+                          ) : (
+                            <div
+                              className="inline-flex items-center justify-center space-x-1 px-1.5 py-0.5 rounded bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 text-[10px] font-medium"
+                              title="Hidden until Monday Night Football kicks off"
+                            >
+                              <Lock className="w-2.5 h-2.5 text-zinc-400 shrink-0" />
+                              <span>Hidden</span>
+                            </div>
+                          )
+                        ) : (
+                          <span className="text-zinc-600 font-mono text-[10px]">—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -639,9 +700,24 @@ export function WeeklyScoreboard({
                           {entry.predictedMnfScore !== undefined && (
                             <>
                               <span>•</span>
-                              <span className="text-purple-300">
-                                MNF Pred: {entry.predictedMnfScore} pts
-                              </span>
+                              {isMnfStarted ? (
+                                <span className="text-purple-300">
+                                  MNF Pred: {entry.predictedMnfScore} pts
+                                </span>
+                              ) : isCurrent ? (
+                                <span className="text-purple-300 inline-flex items-center space-x-1">
+                                  <span>MNF Pred: {entry.predictedMnfScore} pts</span>
+                                  <span className="text-zinc-400 text-[10px]">(Your pick)</span>
+                                </span>
+                              ) : (
+                                <span
+                                  className="text-zinc-500 inline-flex items-center space-x-1 text-[11px]"
+                                  title="Tiebreaker hidden until MNF kicks off"
+                                >
+                                  <Lock className="w-2.5 h-2.5 text-zinc-400 inline shrink-0" />
+                                  <span>MNF Pred: Hidden until kickoff</span>
+                                </span>
+                              )}
                             </>
                           )}
                         </div>
