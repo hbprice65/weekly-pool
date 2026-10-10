@@ -1,5 +1,5 @@
 import { createClient } from "./client";
-import { Game, GameStatus, LeaderboardEntry } from "@/types";
+import { Game, GameStatus, LeaderboardEntry, DEFAULT_POOL_ID } from "@/types";
 import { MOCK_LEADERBOARD, MOCK_GAMES } from "@/lib/mock-data";
 import { NFL_TEAMS } from "@/lib/nfl-data";
 import {
@@ -147,18 +147,21 @@ export async function fetchUserPicksFromSupabase(
     // 2. Fetch tiebreaker prediction for the selected week
     const { data: tieData, error: tieError } = await supabase
       .from("tiebreakers")
-      .select("predicted_mnf_score")
+      .select("predicted_score, predicted_mnf_score")
       .eq("user_id", userId)
       .eq("week_number", targetWeek)
       .maybeSingle();
 
     if (tieError) {
-      console.warn("Error fetching tiebreaker:", tieError.message);
+      console.warn("Notice: could not query tiebreaker:", tieError.message);
     }
+
+    const resolvedScore =
+      tieData?.predicted_score ?? tieData?.predicted_mnf_score;
 
     return {
       picks,
-      mnfScore: tieData?.predicted_mnf_score?.toString(),
+      mnfScore: resolvedScore !== undefined && resolvedScore !== null ? resolvedScore.toString() : undefined,
     };
   } catch (err) {
     console.error("Error loading picks from Supabase:", err);
@@ -246,10 +249,39 @@ export async function saveUserPicksToSupabase(
       // Non-blocking fallback
     }
 
-    // 3. Upsert picks into public.picks
-    const { error: picksError } = await supabase
+    // 3. Upsert picks into public.picks (V2 schema with pool_id, fallback to V1)
+    const rowsV2 = pickEntries.map(([gameId, selectedTeam]) => ({
+      pool_id: DEFAULT_POOL_ID,
+      user_id: userId,
+      game_id: gameId,
+      week_number: targetWeek,
+      selected_team: selectedTeam,
+      updated_at: new Date().toISOString(),
+    }));
+
+    let { error: picksError } = await supabase
       .from("picks")
-      .upsert(rowsToUpsert, { onConflict: "user_id,game_id" });
+      .upsert(rowsV2, { onConflict: "pool_id,user_id,game_id" });
+
+    // Fallback to V1 schema if pool_id column does not exist yet
+    if (
+      picksError &&
+      (picksError.message.includes("pool_id") ||
+        picksError.message.includes("column") ||
+        picksError.code === "PGRST204" ||
+        picksError.code === "42703")
+    ) {
+      const rowsV1 = pickEntries.map(([gameId, selectedTeam]) => ({
+        user_id: userId,
+        game_id: gameId,
+        selected_team: selectedTeam,
+        updated_at: new Date().toISOString(),
+      }));
+      const resV1 = await supabase
+        .from("picks")
+        .upsert(rowsV1, { onConflict: "user_id,game_id" });
+      picksError = resV1.error;
+    }
 
     if (picksError) {
       console.error("Error upserting picks into Supabase:", picksError);
@@ -257,25 +289,46 @@ export async function saveUserPicksToSupabase(
         picksError.message.toLowerCase().includes("row-level security") ||
         picksError.message.toLowerCase().includes("policy");
       const errorMsg = isRls
-        ? "RLS policy error on table 'picks'. Run 'supabase/fix_picks_rls.sql' in Supabase SQL Editor to enable picks permissions."
+        ? "RLS policy error on table 'picks'. Please run 'supabase/schema_v2.sql' in your Supabase SQL Editor."
         : picksError.message;
       return { success: false, error: errorMsg, userId };
     }
 
-    // Upsert tiebreaker for target week
+    // Upsert tiebreaker for target week (V2 with pool_id, fallback to V1)
     if (mnfScore !== undefined && mnfScore !== "") {
       const parsedScore =
         typeof mnfScore === "number" ? mnfScore : parseInt(mnfScore, 10);
       if (!isNaN(parsedScore)) {
-        const { error: tieError } = await supabase.from("tiebreakers").upsert(
+        let { error: tieError } = await supabase.from("tiebreakers").upsert(
           {
+            pool_id: DEFAULT_POOL_ID,
             user_id: userId,
             week_number: targetWeek,
+            predicted_score: parsedScore,
             predicted_mnf_score: parsedScore,
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "user_id,week_number" }
+          { onConflict: "pool_id,user_id,week_number" }
         );
+
+        if (
+          tieError &&
+          (tieError.message.includes("pool_id") ||
+            tieError.message.includes("column") ||
+            tieError.code === "PGRST204" ||
+            tieError.code === "42703")
+        ) {
+          const resTieV1 = await supabase.from("tiebreakers").upsert(
+            {
+              user_id: userId,
+              week_number: targetWeek,
+              predicted_mnf_score: parsedScore,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id,week_number" }
+          );
+          tieError = resTieV1.error;
+        }
 
         if (tieError) {
           console.warn("Could not save tiebreaker score:", tieError.message);
@@ -319,12 +372,12 @@ export async function fetchLiveLeaderboard(
     // 2. Fetch all picks across all weeks
     const { data: allPicks } = await supabase
       .from("picks")
-      .select("user_id, game_id, selected_team, is_correct, points_awarded");
+      .select("user_id, game_id, selected_team, is_correct, points, points_awarded");
 
     // 3. Fetch tiebreakers for the target week
     const { data: allTiebreakers } = await supabase
       .from("tiebreakers")
-      .select("user_id, predicted_mnf_score, week_number")
+      .select("user_id, predicted_score, predicted_mnf_score, week_number")
       .eq("week_number", targetWeek);
 
     // 4. Build comprehensive games map to know week_number, winner, and status for all games
@@ -364,7 +417,10 @@ export async function fetchLiveLeaderboard(
     const tiebreakersMap: Record<string, number> = {};
     if (allTiebreakers) {
       for (const t of allTiebreakers) {
-        tiebreakersMap[t.user_id] = t.predicted_mnf_score;
+        const val = (t as any).predicted_score ?? (t as any).predicted_mnf_score;
+        if (val !== undefined && val !== null) {
+          tiebreakersMap[t.user_id] = Number(val);
+        }
       }
     }
 
@@ -406,11 +462,12 @@ export async function fetchLiveLeaderboard(
             game.winner_team === p.selected_team);
 
         if (isWinner) {
-          userStatsMap[p.user_id].totalPoints += p.points_awarded || 1;
+          const pts = (p as any).points ?? p.points_awarded ?? 1;
+          userStatsMap[p.user_id].totalPoints += pts;
           userStatsMap[p.user_id].totalCorrect += 1;
 
           if (isCurrentWeekGame) {
-            userStatsMap[p.user_id].weeklyPoints += p.points_awarded || 1;
+            userStatsMap[p.user_id].weeklyPoints += pts;
           }
         }
       }

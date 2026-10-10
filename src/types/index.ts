@@ -1,3 +1,33 @@
+export type SportType = "football" | "basketball" | "baseball" | "soccer" | "hockey";
+export type LeagueType = "nfl" | "ncaaf" | "nba" | "mlb" | "epl";
+export type PoolFormat = "straight_up" | "against_spread" | "survivor" | "confidence";
+
+export const DEFAULT_POOL_ID = "00000000-0000-0000-0000-000000000001";
+export const DEFAULT_POOL_SLUG = "nfl-2026-weekly";
+
+export interface Pool {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  sport: SportType;
+  league: LeagueType;
+  format: PoolFormat;
+  seasonYear: number;
+  isPublic: boolean;
+  joinCode?: string;
+  creatorId?: string;
+  settings?: Record<string, unknown>;
+  createdAt?: string;
+}
+
+export interface PoolMember {
+  poolId: string;
+  userId: string;
+  role: "admin" | "member";
+  joinedAt: string;
+}
+
 export type NFLConference = "AFC" | "NFC";
 export type NFLDivision = "East" | "North" | "South" | "West";
 
@@ -18,6 +48,8 @@ export type GameStatus = "SCHEDULED" | "IN_PROGRESS" | "FINAL";
 
 export interface Game {
   id: string;
+  sport?: SportType;
+  league?: LeagueType;
   weekNumber: number;
   seasonYear: number;
   homeTeam: NFLTeam;
@@ -31,12 +63,15 @@ export interface Game {
   tvNetwork?: string;
   isMondayNight?: boolean;
   statusDetail?: string; // e.g. "Final", "Final/OT", "1st Qtr 10:24", "Thu 8:15 PM"
+  metadata?: Record<string, unknown>;
 }
 
 export interface Pick {
   id: string;
+  poolId?: string;
   userId: string;
   gameId: string;
+  weekNumber?: number;
   selectedTeamId: string;
   isCorrect?: boolean;
   pointsAwarded?: number;
@@ -80,4 +115,3 @@ export interface LeaderboardEntry {
   predictedMnfScore?: number;
   picks?: Record<string, string>;
 }
-
