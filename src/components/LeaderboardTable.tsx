@@ -2,8 +2,7 @@
 
 import React, { useState } from "react";
 import { LeaderboardEntry } from "@/types";
-import { Podium, TrendingUp, Medal, Search, ArrowRight } from "lucide-react";
-import { SevenSegmentIcon } from "@/components/SevenSegmentIcon";
+import { Podium, TrendingUp, Medal, Search } from "lucide-react";
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
@@ -14,7 +13,6 @@ interface LeaderboardTableProps {
 export function LeaderboardTable({
   entries,
   currentUserId,
-  onNavigateToScoreboard,
 }: LeaderboardTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -35,34 +33,16 @@ export function LeaderboardTable({
   return (
     <div className="space-y-5 sm:space-y-6">
       {/* Season Leaderboard Header Banner */}
-      <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2">
-            <Podium className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 shrink-0" />
-            <h2 className="text-base sm:text-xl font-bold text-white">
-              Season Standings
-            </h2>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-semibold border border-amber-500/20">
-              2026 Season
-            </span>
-          </div>
-          <p className="text-xs text-zinc-400 mt-1">
-            Cumulative points across all NFL weeks. Overall standings and participant rank.
-          </p>
+      <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Podium className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 shrink-0" />
+          <h2 className="text-base sm:text-xl font-bold text-white">
+            Season Standings
+          </h2>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-semibold border border-amber-500/20">
+            2026
+          </span>
         </div>
-
-        {/* Link / Callout to Weekly Scoreboard */}
-        {onNavigateToScoreboard && (
-          <button
-            type="button"
-            onClick={onNavigateToScoreboard}
-            className="flex items-center space-x-2 bg-zinc-800 hover:bg-zinc-750 border border-zinc-700/80 hover:border-zinc-600 px-3.5 py-2 rounded-xl text-xs font-semibold text-zinc-200 hover:text-white transition group self-start md:self-auto shrink-0 shadow-sm"
-          >
-            <SevenSegmentIcon className="w-3.5 h-3.5 text-emerald-400" />
-            <span>View Scoreboard</span>
-            <ArrowRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
-          </button>
-        )}
       </div>
 
       {/* Top 3 Season Podium Cards */}
@@ -154,14 +134,9 @@ export function LeaderboardTable({
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl sm:rounded-2xl overflow-hidden shadow-sm">
         {/* Table Search & Controls */}
         <div className="p-4 sm:p-5 border-b border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h3 className="text-sm sm:text-base font-bold text-white flex items-center space-x-2">
-              <span>Overall Season Leaderboard</span>
-            </h3>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Ranked strictly by cumulative season points
-            </p>
-          </div>
+          <h3 className="text-sm sm:text-base font-bold text-white">
+            Overall Standings
+          </h3>
 
           <div className="relative max-w-xs w-full">
             <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />

@@ -72,12 +72,12 @@ export function GameCard({
           ) : isPastKickoff ? (
             <span className="bg-amber-950/80 text-amber-300 border border-amber-800/80 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider flex items-center space-x-1">
               <Clock className="w-3 h-3 text-amber-400 shrink-0" />
-              <span>LOCKED • Kickoff Passed</span>
+              <span>LOCKED</span>
             </span>
           ) : isLocked ? (
             <span className="bg-zinc-800 text-zinc-400 border border-zinc-700/80 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider flex items-center space-x-1">
               <Lock className="w-3 h-3 text-amber-400 shrink-0" />
-              <span>LOCKED • Future Week</span>
+              <span>LOCKED</span>
             </span>
           ) : (
             <span className="flex items-center space-x-1 font-medium text-zinc-300">
@@ -96,7 +96,7 @@ export function GameCard({
 
           {game.isMondayNight && (
             <span className="bg-purple-950/90 text-purple-300 border border-purple-800/80 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0">
-              MNF • Tiebreaker
+              MNF
             </span>
           )}
         </div>
@@ -159,7 +159,6 @@ export function GameCard({
                 )}
               </div>
               <div className="text-[10px] sm:text-xs text-zinc-400 flex items-center space-x-1.5">
-                <span>Away</span>
                 {game.awayTeam.record && (
                   <span className="text-zinc-400 font-mono">({game.awayTeam.record})</span>
                 )}
@@ -254,7 +253,6 @@ export function GameCard({
                 )}
               </div>
               <div className="text-[10px] sm:text-xs text-zinc-400 flex items-center space-x-1.5">
-                <span>Home</span>
                 {game.homeTeam.record && (
                   <span className="text-zinc-400 font-mono">({game.homeTeam.record})</span>
                 )}

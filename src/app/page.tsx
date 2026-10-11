@@ -22,21 +22,12 @@ import {
   Check,
   CheckCircle2,
   Save,
-  Calendar,
-  Podium,
-  Ruler,
-  Trophy,
   Minus,
   Plus,
-  CloudCheck,
   AlertCircle,
   Loader2,
-  LogIn,
-  Activity,
-  RefreshCw,
   Lock,
 } from "lucide-react";
-import { SevenSegmentIcon } from "@/components/SevenSegmentIcon";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<NavTab>("picks");
@@ -152,13 +143,15 @@ export default function Home() {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
-  // 4. Detect live active NFL week on initial mount if not specified in URL
+  // 4. Detect live active NFL week on initial mount
   useEffect(() => {
     let isMounted = true;
-    const fallback = calculateFallbackWeek();
-    if (isMounted) {
+
+    queueMicrotask(() => {
+      if (!isMounted) return;
+      const fallback = calculateFallbackWeek();
       setCurrentActiveWeek(fallback);
-      setSelectedWeek((prev) => {
+      setSelectedWeek(() => {
         if (typeof window !== "undefined") {
           const params = new URLSearchParams(window.location.search);
           const weekParam = params.get("week");
@@ -171,7 +164,7 @@ export default function Home() {
         }
         return fallback;
       });
-    }
+    });
 
     fetchCurrentActiveNFLWeek().then(({ currentWeek }) => {
       if (isMounted && currentWeek) {
@@ -354,7 +347,7 @@ export default function Home() {
       if (res.success) {
         setSaveStatus({
           type: "success",
-          message: `Week ${selectedWeek} picks saved to Supabase for ${currentUser.name || currentUser.email || "user"}!`,
+          message: "Picks saved.",
         });
         const updatedBoard = await fetchLiveLeaderboard(selectedWeek, weekGames);
         if (updatedBoard && updatedBoard.length > 0) {
@@ -363,22 +356,21 @@ export default function Home() {
       } else {
         setSaveStatus({
           type: "error",
-          message: `Saved locally. Database sync notice: ${res.error || "Check database games"}.`,
+          message: `Saved locally. Cloud sync: ${res.error || "unavailable"}.`,
         });
       }
     } else {
       setSaveStatus({
         type: "info",
-        message: `Week ${selectedWeek} picks saved locally! Sign in to sync across devices.`,
+        message: "Picks saved in browser. Sign in to join the leaderboard.",
       });
     }
 
     setIsSaving(false);
 
-    // Keep error visible longer (10s) so user has time to read troubleshooting steps
     setTimeout(() => {
       setSaveStatus(null);
-    }, 10000);
+    }, 4000);
   };
 
   const handleStepMnf = (delta: number) => {
@@ -399,9 +391,7 @@ export default function Home() {
     ? leaderboardEntries.find((e) => e.userId === currentUser.id)
     : null;
   const myRank = myEntry ? myEntry.rank : (currentUser ? 1 : MOCK_USER.seasonRank);
-  const myWeeklyRank = myEntry?.weeklyRank ?? (currentUser ? 1 : MOCK_USER.weeklyRank ?? 1);
   const myPoints = myEntry ? myEntry.totalPoints : (currentUser ? 0 : MOCK_USER.totalPoints);
-  const myWeeklyPoints = myEntry ? myEntry.weeklyPoints : 0;
 
   const displayName =
     currentUser?.name ||
@@ -431,153 +421,36 @@ export default function Home() {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 pb-24 sm:pb-12">
-        {/* Supabase User Cloud Status Banner */}
-        {currentUser ? (
-          <div className="bg-emerald-950/30 border border-emerald-800/40 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-emerald-300">
-            <div className="flex items-center space-x-2">
-              <CloudCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>
-                Connected to Supabase as{" "}
-                <strong>{currentUser.name || currentUser.email}</strong> • Week{" "}
-                {selectedWeek} picks auto-synced
-              </span>
+        {/* Guest Status Banner */}
+        {!currentUser && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-zinc-300">
+            <div className="flex items-center space-x-2 min-w-0">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="truncate">Playing as Guest &mdash; picks saved in browser. Sign in to join the leaderboard.</span>
             </div>
             <button
               type="button"
               onClick={() => setIsAuthOpen(true)}
-              className="text-[11px] text-emerald-400 hover:text-emerald-200 underline font-medium"
+              className="text-emerald-400 hover:text-emerald-300 font-semibold text-xs shrink-0 ml-3"
             >
-              Manage Account
+              Sign In
             </button>
           </div>
-        ) : (
-          <div className="bg-gradient-to-b from-zinc-900/95 via-zinc-900 to-zinc-950 border-2 border-amber-500/35 hover:border-amber-500/45 rounded-xl sm:rounded-2xl p-5 sm:p-7 shadow-xl shadow-amber-500/5 relative overflow-hidden transition-all">
-            {/* Ambient lighting glow */}
-            <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-80 h-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-
-            <div className="relative flex flex-col items-center text-center max-w-2xl mx-auto space-y-3 sm:space-y-3.5">
-              {/* Status Pill */}
-              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold tracking-wide">
-                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>Guest Mode Active • Local Browser Only</span>
-              </div>
-
-              {/* Main Headline */}
-              <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight">
-                Sign in to save your picks & enter the pool... or continue as a dickhead.
-              </h2>
-
-              {/* Explanatory Body */}
-              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-xl">
-                You are currently playing as a dickhead. Picks made now are only stored in this browser and will not appear on the official leaderboard or sync across devices until you sign in.
-              </p>
-
-              {/* Large Centered Sign In CTA Button */}
-              <div className="pt-2 w-full sm:w-auto flex flex-col sm:flex-row items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAuthOpen(true)}
-                  className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-sm sm:text-base flex items-center justify-center space-x-2.5 shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all active:scale-95 touch-manipulation group"
-                >
-                  <LogIn className="w-5 h-5 text-zinc-950 shrink-0 group-hover:translate-x-0.5 transition-transform" />
-                  <span>Sign In to Save & Sync Week {selectedWeek} Picks</span>
-                </button>
-              </div>
-
-              {/* Trust & Ease Bullet Points */}
-              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-zinc-400 pt-1">
-                <span className="flex items-center space-x-1">
-                  <span className="text-emerald-400 font-bold">✓</span>
-                  <span>Google or Email Sign In</span>
-                </span>
-                <span className="hidden sm:inline text-zinc-600">•</span>
-                <span className="flex items-center space-x-1">
-                  <span className="text-emerald-400 font-bold">✓</span>
-                  <span>Appears on Live Leaderboard</span>
-                </span>
-                <span className="hidden sm:inline text-zinc-600">•</span>
-                <span className="flex items-center space-x-1">
-                  <span className="text-emerald-400 font-bold">✓</span>
-                  <span>Free to Play</span>
-                </span>
-              </div>
-            </div>
-          </div>
         )}
-
-        {/* Pool Summary Stats Bar */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-          {/* Card 1: Slate Details */}
-          <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold shrink-0">
-              <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Current Slate</div>
-              <div className="text-sm sm:text-lg font-bold text-white truncate">
-                Week {selectedWeek} ({totalGames} Games)
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Picks Made */}
-          <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold shrink-0">
-              <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Picks Made</div>
-              <div className="text-sm sm:text-lg font-bold text-white truncate">
-                {pickedCount} / {totalGames}
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Week Standing */}
-          <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold shrink-0">
-              <SevenSegmentIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Week {selectedWeek} Scoreboard</div>
-              <div className="text-sm sm:text-lg font-bold text-white truncate">
-                #{myWeeklyRank} • {myWeeklyPoints} pts
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4: Season Standing */}
-          <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold shrink-0">
-              <Podium className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Season Standings</div>
-              <div className="text-sm sm:text-lg font-bold text-white truncate">
-                #{myRank} • {myPoints} pts
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Tab 1: Picks View */}
         {activeTab === "picks" && (
           <div className="space-y-4 sm:space-y-6">
             {/* Top Action Bar */}
             <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <Check className="w-5 h-5 text-emerald-400 shrink-0" strokeWidth={2.5} />
-                  <h2 className="text-base sm:text-lg font-bold text-white">
-                    Week {selectedWeek} Picks
-                  </h2>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/60 font-medium">
-                    {pickedCount}/{totalGames} selected
-                  </span>
-                </div>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Select straight-up winners for every matchup before kickoff.
-                </p>
+              <div className="flex items-center space-x-2">
+                <Check className="w-5 h-5 text-emerald-400 shrink-0" strokeWidth={2.5} />
+                <h2 className="text-base sm:text-lg font-bold text-white">
+                  Week {selectedWeek} Picks
+                </h2>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/60 font-medium">
+                  {pickedCount}/{totalGames} selected
+                </span>
               </div>
 
               {/* Desktop Save Button & Feedback */}
@@ -600,20 +473,6 @@ export default function Home() {
                     <span>{saveStatus.message}</span>
                   </span>
                 )}
-
-                <button
-                  type="button"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="px-3 py-2.5 rounded-xl border border-zinc-800 hover:border-zinc-700 bg-zinc-900 text-zinc-300 hover:text-white text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95"
-                >
-                  <RefreshCw
-                    className={`w-3.5 h-3.5 text-emerald-400 ${
-                      isRefreshing ? "animate-spin" : ""
-                    }`}
-                  />
-                  <span>Sync Schedule</span>
-                </button>
 
                 <button
                   type="button"
@@ -669,16 +528,9 @@ export default function Home() {
 
             {/* Future Week Notice Banner */}
             {isFutureWeek && (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 sm:p-4 flex items-start space-x-3 text-amber-200 shadow-sm">
-                <Lock className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                <div className="text-xs sm:text-sm space-y-1">
-                  <div className="font-semibold text-amber-300">
-                    Week {selectedWeek} Schedule Preview &mdash; Picks Locked
-                  </div>
-                  <div className="text-zinc-300 leading-relaxed">
-                    You can preview upcoming matchups, kickoff dates, and broadcast networks in advance. Making and submitting picks will unlock once Week {selectedWeek} officially begins (Current active week: Week {currentActiveWeek}).
-                  </div>
-                </div>
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center space-x-2.5 text-xs text-amber-300">
+                <Lock className="w-4 h-4 shrink-0 text-amber-400" />
+                <span>Week {selectedWeek} schedule preview &mdash; picks unlock once the week begins.</span>
               </div>
             )}
 
@@ -697,29 +549,23 @@ export default function Home() {
 
             {/* Tiebreaker Section (Monday Night Football Total Score) */}
             <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block shrink-0" />
-                    <span>Monday Night Football Tiebreaker</span>
-                  </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Predict total combined points in{" "}
-                    <strong>
-                      {mnfGame
-                        ? `${mnfGame.awayTeam.fullName} vs ${mnfGame.homeTeam.fullName}`
-                        : "the final weekly matchup"}
-                    </strong>
-                    . Predictions remain locked and hidden from other players until kickoff.
-                  </p>
-                </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block shrink-0" />
+                  <span>Monday Night Football Tiebreaker</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Predicted total points for{" "}
+                  <strong className="text-zinc-200">
+                    {mnfGame
+                      ? `${mnfGame.awayTeam.fullName} vs ${mnfGame.homeTeam.fullName}`
+                      : "Monday Night Football"}
+                  </strong>
+                </p>
               </div>
 
               {/* Touch Stepper + Input */}
-              <div className="flex flex-wrap items-center gap-3 pt-2">
-                <span className="text-xs font-medium text-zinc-300">
-                  Predicted Total Points:
-                </span>
+              <div className="flex items-center gap-2.5 pt-1">
                 <div className={`flex items-center space-x-1.5 bg-zinc-950 border border-zinc-800 rounded-xl p-1 ${isFutureWeek ? "opacity-60" : ""}`}>
                   <button
                     type="button"
@@ -754,15 +600,7 @@ export default function Home() {
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSavePicks}
-                  disabled={isSaving || isFutureWeek}
-                  className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3.5 py-2 rounded-xl border border-zinc-700 transition active:scale-95 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1.5"
-                >
-                  {isFutureWeek && <Lock className="w-3 h-3 text-amber-400" />}
-                  <span>{isFutureWeek ? "Tiebreaker Locked" : "Save Tiebreaker"}</span>
-                </button>
+                <span className="text-xs text-zinc-400">total points</span>
               </div>
             </div>
           </div>
@@ -775,9 +613,6 @@ export default function Home() {
             entries={leaderboardEntries}
             currentUserId={currentUser?.id}
             currentUserPicks={userPicks}
-            selectedWeek={selectedWeek}
-            onRefresh={handleRefresh}
-            isRefreshing={isRefreshing}
           />
         )}
 
@@ -869,15 +704,8 @@ export default function Home() {
       />
 
       {/* Sports App Footer */}
-      <footer className="border-t border-zinc-800/80 bg-zinc-950 py-6 text-center text-xs text-zinc-500">
-        <div className="max-w-7xl mx-auto px-4 space-y-1.5">
-          <p className="text-zinc-400 font-medium">
-            © 2026 NFL Weekly Picks Pool • All game times displayed in US/Eastern
-          </p>
-          <p className="text-[11px] text-zinc-400">
-            Official NFL schedule & scores • Straight-up pick&apos;em scoring & Monday Night Football tiebreakers
-          </p>
-        </div>
+      <footer className="border-t border-zinc-800/80 bg-zinc-950 py-4 text-center text-xs text-zinc-500">
+        <p>© 2026 NFL Weekly Picks Pool • Times US/Eastern</p>
       </footer>
     </div>
   );

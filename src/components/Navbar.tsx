@@ -64,9 +64,6 @@ export function Navbar({
                   2026
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400 hidden lg:block truncate">
-                Pick weekly winners & track live pool scores
-              </p>
             </div>
           </div>
 
