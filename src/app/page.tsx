@@ -464,12 +464,12 @@ export default function Home() {
 
               {/* Main Headline */}
               <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight">
-                Sign in to save your picks & enter the pool... or continue as a dickhead.
+                Sign in to jump in the pool... or continue as a dickhead.
               </h2>
 
               {/* Explanatory Body */}
               <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-xl">
-                You are currently playing as a dickhead. Picks made now are only stored in this browser and will not appear on the official leaderboard or sync across devices until you sign in.
+                You are currently playing as a dickhead. Dickhead picks will not appear on the official leaderboard or sync across devices until you sign in. Good luck, dickhead.
               </p>
 
               {/* Large Centered Sign In CTA Button */}
