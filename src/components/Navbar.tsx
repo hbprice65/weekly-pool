@@ -57,9 +57,10 @@ export function Navbar({
             <div className="min-w-0">
               <div className="flex items-center space-x-1.5 sm:space-x-2">
                 <span className="text-base sm:text-lg font-bold tracking-tight text-white truncate">
-                  Weekly Pool
+                  <span className="sm:hidden">WP</span>
+                  <span className="hidden sm:inline">Weekly Pool</span>
                 </span>
-                <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20 whitespace-nowrap hidden xs:inline-block">
+                <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20 whitespace-nowrap hidden sm:inline-block">
                   2026
                 </span>
               </div>
@@ -183,50 +184,56 @@ export function Navbar({
               </button>
             )}
 
-            {/* User Profile Pill */}
+            {/* User Profile Pill / Prominent Sign In CTA */}
             <button
               type="button"
               onClick={onOpenAuth}
-              className="flex items-center space-x-2 bg-zinc-900/90 hover:bg-zinc-800/90 border border-zinc-800 hover:border-zinc-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl transition text-left active:scale-95 touch-manipulation group"
-              title="Click to manage account or switch user"
+              className={`flex items-center space-x-2 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-lg sm:rounded-xl transition-all active:scale-95 touch-manipulation group text-left shrink-0 ${
+                isAuthenticated
+                  ? "bg-zinc-900/90 hover:bg-zinc-800/90 border border-zinc-800 hover:border-zinc-700 min-w-[95px] sm:min-w-[130px]"
+                  : "bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold border border-emerald-400 shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/30 min-w-[90px] sm:min-w-[120px]"
+              }`}
+              title={isAuthenticated ? "Click to manage account or switch user" : "Sign in to save and sync your picks"}
             >
-              {userAvatar && isAuthenticated ? (
-                <img
-                  src={userAvatar}
-                  alt={userName}
-                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg object-cover border border-emerald-500/40 shrink-0"
-                />
-              ) : (
-                <div
-                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg font-bold flex items-center justify-center text-xs shrink-0 border ${
-                    isAuthenticated
-                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                      : "bg-zinc-800 text-zinc-300 border-zinc-700"
-                  }`}
-                >
-                  {isAuthenticated ? (
-                    <User className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              {isAuthenticated ? (
+                <>
+                  {userAvatar ? (
+                    <img
+                      src={userAvatar}
+                      alt={userName}
+                      className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg object-cover border border-emerald-500/40 shrink-0"
+                    />
                   ) : (
-                    <LogIn className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-zinc-400" />
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg font-bold flex items-center justify-center text-xs shrink-0 border bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                      <User className="w-3.5 h-3.5" />
+                    </div>
                   )}
-                </div>
-              )}
-              <div className="text-left hidden xs:block">
-                <div className="text-[11px] sm:text-xs font-semibold text-white leading-tight max-w-[80px] sm:max-w-[120px] truncate group-hover:text-emerald-300 transition-colors">
-                  {isAuthenticated ? userName : "Sign In"}
-                </div>
-                <div className="text-[9px] sm:text-[10px] text-zinc-400 leading-tight">
-                  {isAuthenticated ? (
-                    <>
-                      <span className="font-medium text-emerald-400">{userPoints} pts</span>
+                  <div className="text-left min-w-0">
+                    <div className="text-[11px] sm:text-xs font-bold text-white leading-tight max-w-[75px] sm:max-w-[120px] truncate group-hover:text-emerald-300 transition-colors">
+                      {userName}
+                    </div>
+                    <div className="text-[9px] sm:text-[10px] text-zinc-400 leading-tight">
+                      <span className="font-semibold text-emerald-400">{userPoints} pts</span>
                       <span className="text-zinc-500"> • </span>
                       <span>#{userRank}</span>
-                    </>
-                  ) : (
-                    <span className="text-emerald-400/90 font-medium">Sync</span>
-                  )}
-                </div>
-              </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-zinc-950/15 flex items-center justify-center shrink-0">
+                    <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-950 shrink-0" />
+                  </div>
+                  <div className="text-left leading-tight">
+                    <div className="text-xs sm:text-sm font-black text-zinc-950 tracking-tight whitespace-nowrap">
+                      Sign In
+                    </div>
+                    <div className="text-[9px] sm:text-[10px] text-zinc-900/80 font-semibold whitespace-nowrap hidden sm:block">
+                      Sync Picks
+                    </div>
+                  </div>
+                </>
+              )}
             </button>
           </div>
         </div>

@@ -414,20 +414,57 @@ export default function Home() {
             </button>
           </div>
         ) : (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-zinc-300">
-            <div className="flex items-center space-x-2">
-              <LogIn className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>
-                Playing in guest mode. <strong>Sign in</strong> to sync and verify your Week {selectedWeek} picks in Supabase!
-              </span>
+          <div className="bg-gradient-to-b from-zinc-900/95 via-zinc-900 to-zinc-950 border-2 border-amber-500/35 hover:border-amber-500/45 rounded-xl sm:rounded-2xl p-5 sm:p-7 shadow-xl shadow-amber-500/5 relative overflow-hidden transition-all">
+            {/* Ambient lighting glow */}
+            <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-80 h-24 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="relative flex flex-col items-center text-center max-w-2xl mx-auto space-y-3 sm:space-y-3.5">
+              {/* Status Pill */}
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold tracking-wide">
+                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Guest Mode Active • Local Browser Only</span>
+              </div>
+
+              {/* Main Headline */}
+              <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight">
+                Sign in to save your picks & enter the pool
+              </h2>
+
+              {/* Explanatory Body */}
+              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-xl">
+                You are currently playing as a guest. Picks made now are only stored in this browser and will not appear on the official leaderboard or sync across devices until you sign in.
+              </p>
+
+              {/* Large Centered Sign In CTA Button */}
+              <div className="pt-2 w-full sm:w-auto flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAuthOpen(true)}
+                  className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-sm sm:text-base flex items-center justify-center space-x-2.5 shadow-xl shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all active:scale-95 touch-manipulation group"
+                >
+                  <LogIn className="w-5 h-5 text-zinc-950 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  <span>Sign In to Save & Sync Week {selectedWeek} Picks</span>
+                </button>
+              </div>
+
+              {/* Trust & Ease Bullet Points */}
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-zinc-400 pt-1">
+                <span className="flex items-center space-x-1">
+                  <span className="text-emerald-400 font-bold">✓</span>
+                  <span>Google or Email Sign In</span>
+                </span>
+                <span className="hidden sm:inline text-zinc-600">•</span>
+                <span className="flex items-center space-x-1">
+                  <span className="text-emerald-400 font-bold">✓</span>
+                  <span>Appears on Live Leaderboard</span>
+                </span>
+                <span className="hidden sm:inline text-zinc-600">•</span>
+                <span className="flex items-center space-x-1">
+                  <span className="text-emerald-400 font-bold">✓</span>
+                  <span>Free to Play</span>
+                </span>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsAuthOpen(true)}
-              className="text-[11px] bg-zinc-800 hover:bg-zinc-700 text-white font-semibold px-2.5 py-1 rounded-lg border border-zinc-700 transition"
-            >
-              Sign In
-            </button>
           </div>
         )}
 
