@@ -79,7 +79,7 @@ export function WeeklyScoreboard({
   return (
     <div className="space-y-4 sm:space-y-5">
       {/* Week Scoreboard Header */}
-      <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
@@ -92,113 +92,92 @@ export function WeeklyScoreboard({
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Live matchup scores, participant pick outcomes, and weekly standings matrix.
+            Live matchup scores, participant pick results, and weekly standings.
           </p>
         </div>
 
-        {/* Status Pills, Search & Refresh Button */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <span className="text-[11px] bg-zinc-800 text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span>{finalGamesCount} Final</span>
-          </span>
-
-          {inProgressCount > 0 && (
-            <span className="text-[11px] bg-emerald-950/80 text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-700/80 font-bold flex items-center space-x-1.5 animate-pulse">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span>{inProgressCount} Live Now</span>
+        {/* Right: Controls (Row 1) & Streamlined Legend (Row 2) */}
+        <div className="flex flex-col sm:items-start lg:items-end gap-2.5 shrink-0">
+          {/* Row 1: Status Badges, Search & Refresh Button */}
+          <div className="flex flex-wrap items-center gap-2 sm:justify-start lg:justify-end">
+            <span className="text-[11px] bg-zinc-800 text-zinc-300 px-2.5 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5 shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+              <span>{finalGamesCount} Final</span>
             </span>
-          )}
 
-          <span className="text-[11px] bg-zinc-800 text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-purple-400" />
-            <span>{scheduledGamesCount} Upcoming</span>
-          </span>
-
-          {/* Participant Search */}
-          <div className="relative max-w-[170px] w-full hidden sm:block">
-            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search player..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 text-white text-xs pl-8 pr-2.5 py-1.5 rounded-lg focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-
-          {onRefresh && (
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={isRefreshing}
-              className="p-1.5 px-3 bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-200 hover:text-white transition flex items-center space-x-1.5 active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`w-3.5 h-3.5 text-emerald-400 ${
-                  isRefreshing ? "animate-spin" : ""
-                }`}
-              />
-              <span>{isRefreshing ? "Refreshing..." : "Refresh Scores"}</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* WHO PICKED WHO MATRIX (Streamlined Main View) */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl sm:rounded-2xl overflow-hidden shadow-sm">
-        {/* Matrix Header / Controls & Legend */}
-        <div className="p-3.5 sm:p-4 border-b border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs sm:text-sm font-bold text-white">
-              Who Picked Who Matrix
-            </span>
-            <span className="text-[11px] text-zinc-400 hidden xs:inline">
-              • Scroll horizontally to view all matchups
-            </span>
-            {!isMnfStarted && (
-              <span className="text-[11px] text-purple-300/90 hidden md:inline-flex items-center space-x-1">
-                • <Lock className="w-3 h-3 ml-1 text-purple-400 inline" />
-                <span>Tiebreaker predictions hidden until MNF kickoff</span>
+            {inProgressCount > 0 && (
+              <span className="text-[11px] bg-emerald-950/80 text-emerald-300 px-2.5 py-1.5 rounded-lg border border-emerald-700/80 font-bold flex items-center space-x-1.5 animate-pulse shrink-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                <span>{inProgressCount} Live Now</span>
               </span>
             )}
-          </div>
 
-          <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5">
-            {/* Search input for mobile screens */}
-            <div className="relative max-w-[160px] sm:hidden w-full">
+            <span className="text-[11px] bg-zinc-800 text-zinc-300 px-2.5 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5 shrink-0">
+              <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
+              <span>{scheduledGamesCount} Upcoming</span>
+            </span>
+
+            {/* Participant Search */}
+            <div className="relative w-36 xs:w-44 sm:w-48">
               <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search player..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 text-white text-xs pl-8 pr-2.5 py-1 rounded-lg focus:outline-none focus:border-emerald-500"
+                className="w-full bg-zinc-950 border border-zinc-800 text-white text-xs pl-8 pr-2.5 py-1.5 rounded-lg focus:outline-none focus:border-emerald-500"
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="flex items-center space-x-1.5 text-zinc-300 text-[11px] font-medium bg-zinc-800/80 px-2 py-0.5 rounded border border-zinc-700/60">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                <span>Live: Team Icon</span>
-              </span>
-              <span className="flex items-center space-x-1.5 text-emerald-300 text-[11px] font-medium bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-700/60">
-                <span className="w-3.5 h-3.5 rounded bg-emerald-600 flex items-center justify-center text-white text-[9px] font-bold shrink-0">
-                  ✓
-                </span>
-                <span>Final Correct</span>
-              </span>
-              <span className="flex items-center space-x-1.5 text-rose-300 text-[11px] font-medium bg-rose-950/50 px-2 py-0.5 rounded border border-rose-800/60">
-                <span className="w-3.5 h-3.5 rounded bg-rose-600 flex items-center justify-center text-white text-[9px] font-bold shrink-0">
-                  ✕
-                </span>
-                <span>Final Incorrect</span>
-              </span>
-            </div>
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="p-1.5 px-3 bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-200 hover:text-white transition flex items-center space-x-1.5 active:scale-95 disabled:opacity-50 shrink-0"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 text-emerald-400 ${
+                    isRefreshing ? "animate-spin" : ""
+                  }`}
+                />
+                <span className="hidden xs:inline">{isRefreshing ? "Refreshing..." : "Refresh Scores"}</span>
+              </button>
+            )}
           </div>
 
-          {/* Matrix Table with Sticky Column for Player Names */}
-          <div className="overflow-x-auto max-w-full">
+          {/* Row 2: Streamlined Legend */}
+          <div className="flex flex-wrap items-center gap-2 text-xs sm:justify-start lg:justify-end">
+            <span className="flex items-center space-x-1.5 text-zinc-300 text-[11px] font-medium bg-zinc-800/80 px-2.5 py-1 rounded-lg border border-zinc-700/60 shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span>Live: Team Icon</span>
+            </span>
+            <span className="flex items-center space-x-1.5 text-emerald-300 text-[11px] font-medium bg-emerald-950/50 px-2.5 py-1 rounded-lg border border-emerald-700/60 shrink-0">
+              <span className="w-3.5 h-3.5 rounded bg-emerald-600 flex items-center justify-center text-white text-[9px] font-bold shrink-0">
+                ✓
+              </span>
+              <span>Final Correct</span>
+            </span>
+            <span className="flex items-center space-x-1.5 text-rose-300 text-[11px] font-medium bg-rose-950/50 px-2.5 py-1 rounded-lg border border-rose-800/60 shrink-0">
+              <span className="w-3.5 h-3.5 rounded bg-rose-600 flex items-center justify-center text-white text-[9px] font-bold shrink-0">
+                ✕
+              </span>
+              <span>Final Incorrect</span>
+            </span>
+            {!isMnfStarted && (
+              <span className="flex items-center space-x-1 text-purple-300/90 text-[11px] font-medium bg-purple-950/40 px-2.5 py-1 rounded-lg border border-purple-800/50 shrink-0">
+                <Lock className="w-3 h-3 text-purple-400 shrink-0" />
+                <span>Tiebreaker hidden until MNF</span>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Scoreboard Table Card */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl sm:rounded-2xl overflow-hidden shadow-sm">
+        {/* Table with Sticky Column for Player Names */}
+        <div className="overflow-x-auto max-w-full">
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="bg-zinc-950/80 text-zinc-400 border-b border-zinc-800 font-semibold uppercase tracking-wider text-[11px]">
@@ -482,6 +461,5 @@ export function WeeklyScoreboard({
           </div>
         </div>
       </div>
-    </div>
   );
 }
