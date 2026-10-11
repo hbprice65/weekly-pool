@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { LeaderboardEntry } from "@/types";
-import { Podium, TrendingUp, Medal, Search } from "lucide-react";
+import { Podium, TrendingUp, Search } from "lucide-react";
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
@@ -28,8 +28,6 @@ export function LeaderboardTable({
     e.displayName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const top3 = seasonEntries.slice(0, 3);
-
   return (
     <div className="space-y-5 sm:space-y-6">
       {/* Season Leaderboard Header Banner */}
@@ -43,91 +41,6 @@ export function LeaderboardTable({
             2026
           </span>
         </div>
-      </div>
-
-      {/* Top 3 Season Podium Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        {top3.map((entry, index) => {
-          const isGold = index === 0;
-          const isSilver = index === 1;
-          const winPct =
-            entry.totalPicks > 0
-              ? Math.round((entry.correctPicks / entry.totalPicks) * 100)
-              : 0;
-
-          return (
-            <div
-              key={entry.userId}
-              className={`p-4 rounded-xl sm:rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between ${
-                isGold
-                  ? "bg-gradient-to-b from-amber-950/30 to-zinc-900 border-amber-500/40 shadow-md shadow-amber-500/5"
-                  : isSilver
-                  ? "bg-gradient-to-b from-slate-900/40 to-zinc-900 border-slate-400/30"
-                  : "bg-gradient-to-b from-amber-950/20 to-zinc-900 border-amber-700/30"
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center space-x-2.5">
-                  {entry.avatarUrl ? (
-                    <img
-                      src={entry.avatarUrl}
-                      alt={entry.displayName}
-                      className={`w-9 h-9 rounded-xl object-cover shrink-0 border ${
-                        isGold
-                          ? "border-amber-500/50"
-                          : isSilver
-                          ? "border-slate-300/50"
-                          : "border-amber-700/50"
-                      }`}
-                    />
-                  ) : (
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 border ${
-                        isGold
-                          ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                          : isSilver
-                          ? "bg-slate-300/20 text-slate-200 border-slate-300/40"
-                          : "bg-amber-700/20 text-amber-600 border-amber-700/40"
-                      }`}
-                    >
-                      #{index + 1}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <div className="text-sm font-bold text-white truncate max-w-[130px]">
-                      {entry.displayName}
-                    </div>
-                    <div className="text-[11px] text-zinc-400">
-                      {isGold ? "1st Place Leader" : isSilver ? "2nd Place" : "3rd Place"}
-                    </div>
-                  </div>
-                </div>
-
-                <Medal
-                  className={`w-5 h-5 shrink-0 ${
-                    isGold
-                      ? "text-amber-400"
-                      : isSilver
-                      ? "text-slate-300"
-                      : "text-amber-600"
-                  }`}
-                />
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between text-xs">
-                <div className="text-zinc-400">
-                  <span className="font-semibold text-zinc-200">{winPct}%</span> win rate
-                </div>
-                <div>
-                  <span className="text-base font-black text-white">
-                    {entry.totalPoints}
-                  </span>
-                  <span className="text-[10px] text-zinc-400 ml-1">pts</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
       </div>
 
       {/* Season Standings Table */}
@@ -206,10 +119,9 @@ export function LeaderboardTable({
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-zinc-400 flex items-center space-x-2 mt-0.5">
+                      <div className="text-[11px] text-zinc-400 flex items-center space-x-1.5 mt-0.5">
                         <span>{entry.correctPicks} correct</span>
-                        <span>•</span>
-                        <span>{winPct}% accuracy</span>
+                        <span>({winPct}%)</span>
                       </div>
                     </div>
                   </div>

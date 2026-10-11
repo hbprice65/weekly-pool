@@ -550,9 +550,8 @@ export default function Home() {
             {/* Tiebreaker Section (Monday Night Football Total Score) */}
             <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block shrink-0" />
-                  <span>Monday Night Football Tiebreaker</span>
+                <h3 className="text-sm font-bold text-white">
+                  Monday Night Football Tiebreaker
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">
                   Predicted total points for{" "}

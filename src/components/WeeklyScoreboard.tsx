@@ -67,37 +67,22 @@ export function WeeklyScoreboard({
 
   const finalGamesCount = games.filter((g) => g.status === "FINAL").length;
   const inProgressCount = games.filter((g) => g.status === "IN_PROGRESS").length;
-  const scheduledGamesCount = games.filter((g) => g.status === "SCHEDULED").length;
 
   return (
     <div className="space-y-4 sm:space-y-5">
       {/* Scoreboard Header */}
       <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex items-center space-x-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
           <h2 className="text-base sm:text-xl font-bold text-white flex items-center space-x-2">
             <SevenSegmentIcon className="w-5 h-5 text-emerald-400 shrink-0" />
             <span>Scoreboard</span>
           </h2>
         </div>
 
-        {/* Status Badges & Search */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] bg-zinc-800 text-zinc-300 px-2.5 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5 shrink-0">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-            <span>{finalGamesCount} Final</span>
-          </span>
-
-          {inProgressCount > 0 && (
-            <span className="text-[11px] bg-emerald-950/80 text-emerald-300 px-2.5 py-1.5 rounded-lg border border-emerald-700/80 font-bold flex items-center space-x-1.5 animate-pulse shrink-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-              <span>{inProgressCount} Live</span>
-            </span>
-          )}
-
-          <span className="text-[11px] bg-zinc-800 text-zinc-300 px-2.5 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5 shrink-0">
-            <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
-            <span>{scheduledGamesCount} Upcoming</span>
+        {/* Status Badge & Search */}
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs bg-zinc-800 text-zinc-300 px-2.5 py-1.5 rounded-lg border border-zinc-700/80 font-medium shrink-0">
+            {finalGamesCount}/{games.length} final{inProgressCount > 0 ? ` ${inProgressCount} live` : ""}
           </span>
 
           {/* Participant Search */}
@@ -302,11 +287,11 @@ export function WeeklyScoreboard({
                               }`}
                               title={`${entry.displayName} picked ${teamFullName}${
                                 isWinner
-                                  ? " (Final • Correct +1 pt)"
+                                  ? " (Final - Correct +1 pt)"
                                   : isLoser
-                                  ? " (Final • Incorrect)"
+                                  ? " (Final - Incorrect)"
                                   : isLive
-                                  ? " (Game in Progress)"
+                                  ? " (Live)"
                                   : " (Scheduled)"
                               }`}
                             >

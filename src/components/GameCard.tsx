@@ -65,9 +65,8 @@ export function GameCard({
               FINAL
             </span>
           ) : isLive ? (
-            <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider flex items-center space-x-1 animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span>LIVE • {game.statusDetail || "In Progress"}</span>
+            <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider">
+              LIVE{game.statusDetail ? ` (${game.statusDetail})` : ""}
             </span>
           ) : isPastKickoff ? (
             <span className="bg-amber-950/80 text-amber-300 border border-amber-800/80 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider flex items-center space-x-1">
@@ -83,14 +82,14 @@ export function GameCard({
             <span className="flex items-center space-x-1 font-medium text-zinc-300">
               <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-zinc-400 shrink-0" />
               <span>
-                {formattedDate} • {formattedTime}
+                {formattedDate}, {formattedTime}
               </span>
             </span>
           )}
 
           {isLocked && !isFinal && !isLive && !isPastKickoff && (
             <span className="flex items-center space-x-1 text-zinc-400 text-[11px] font-medium hidden xs:inline-flex">
-              <span>{formattedDate} • {formattedTime}</span>
+              <span>{formattedDate}, {formattedTime}</span>
             </span>
           )}
 

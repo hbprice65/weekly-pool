@@ -209,10 +209,9 @@ export function Navbar({
                     <div className="text-[11px] sm:text-xs font-bold text-white leading-tight max-w-[75px] sm:max-w-[120px] truncate group-hover:text-emerald-300 transition-colors">
                       {userName}
                     </div>
-                    <div className="text-[9px] sm:text-[10px] text-zinc-400 leading-tight">
+                    <div className="text-[9px] sm:text-[10px] text-zinc-400 leading-tight flex items-center space-x-1">
                       <span className="font-semibold text-emerald-400">{userPoints} pts</span>
-                      <span className="text-zinc-500"> • </span>
-                      <span>#{userRank}</span>
+                      <span>(#{userRank})</span>
                     </div>
                   </div>
                 </>
