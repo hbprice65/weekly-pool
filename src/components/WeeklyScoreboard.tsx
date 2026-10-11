@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Lock,
 } from "lucide-react";
+import { SevenSegmentIcon } from "@/components/SevenSegmentIcon";
 
 interface WeeklyScoreboardProps {
   games: Game[];
@@ -92,15 +93,15 @@ export function WeeklyScoreboard({
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
             <h2 className="text-base sm:text-xl font-bold text-white flex items-center space-x-2">
-              <Activity className="w-5 h-5 text-emerald-400 shrink-0" />
-              <span>Week {selectedWeek} Live NFL Scoreboard</span>
+              <SevenSegmentIcon className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span>Week {selectedWeek} Scoreboard</span>
             </h2>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
               ESPN Official Data
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Real NFL scores, weekly winner results, and pool-wide participant pick matrix.
+            Live scores, weekly winner results, and participant pick matrix.
           </p>
         </div>
 

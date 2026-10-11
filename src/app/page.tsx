@@ -19,9 +19,12 @@ import {
 import { fetchCurrentActiveNFLWeek } from "@/lib/api/nfl";
 import { Game, LeaderboardEntry } from "@/types";
 import {
+  Check,
   CheckCircle2,
   Save,
   Calendar,
+  Podium,
+  Ruler,
   Trophy,
   Minus,
   Plus,
@@ -32,6 +35,7 @@ import {
   Activity,
   RefreshCw,
 } from "lucide-react";
+import { SevenSegmentIcon } from "@/components/SevenSegmentIcon";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<NavTab>("picks");
@@ -133,8 +137,8 @@ export default function Home() {
     const handleHashChange = () => {
       if (typeof window !== "undefined") {
         const hash = window.location.hash.replace("#", "");
-        if (["picks", "scoreboard", "leaderboard", "rules"].includes(hash)) {
-          setActiveTab(hash as NavTab);
+        if (["picks", "scoreboard", "leaderboard", "standings", "rules"].includes(hash)) {
+          setActiveTab(hash === "standings" ? "leaderboard" : (hash as NavTab));
         }
       }
     };
@@ -499,10 +503,10 @@ export default function Home() {
           {/* Card 3: Week Standing */}
           <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold shrink-0">
-              <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
+              <SevenSegmentIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
-              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Week {selectedWeek} Standing</div>
+              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Week {selectedWeek} Scoreboard</div>
               <div className="text-sm sm:text-lg font-bold text-white truncate">
                 #{myWeeklyRank} • {myWeeklyPoints} pts
               </div>
@@ -512,10 +516,10 @@ export default function Home() {
           {/* Card 4: Season Standing */}
           <div className="bg-zinc-900/90 border border-zinc-800/80 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center space-x-2.5 sm:space-x-3.5 shadow-sm">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold shrink-0">
-              <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Podium className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
-              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Season Standing</div>
+              <div className="text-[11px] sm:text-xs text-zinc-400 truncate">Season Standings</div>
               <div className="text-sm sm:text-lg font-bold text-white truncate">
                 #{myRank} • {myPoints} pts
               </div>
@@ -530,15 +534,16 @@ export default function Home() {
             <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
               <div>
                 <div className="flex items-center space-x-2">
+                  <Check className="w-5 h-5 text-emerald-400 shrink-0" strokeWidth={2.5} />
                   <h2 className="text-base sm:text-lg font-bold text-white">
-                    Week {selectedWeek} Matchups
+                    Week {selectedWeek} Picks
                   </h2>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/60 font-medium">
                     {pickedCount}/{totalGames} selected
                   </span>
                 </div>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  Official NFL schedule • Select outright winners before each game kicks off.
+                  Select straight-up winners for every matchup before kickoff.
                 </p>
               </div>
 

@@ -2,16 +2,16 @@
 
 import React from "react";
 import {
-  Trophy,
-  Calendar,
-  ShieldCheck,
-  Activity,
+  Check,
+  Podium,
+  Ruler,
   User,
   LogIn,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
 } from "lucide-react";
+import { SevenSegmentIcon } from "@/components/SevenSegmentIcon";
 
 export type NavTab = "picks" | "scoreboard" | "leaderboard" | "rules";
 
@@ -72,59 +72,59 @@ export function Navbar({
 
           {/* Desktop & Tablet Navigation (4 Tabs) */}
           <nav className="hidden md:flex items-center space-x-1 lg:space-x-1.5">
-            {/* 1. Make Picks */}
+            {/* 1. Picks */}
             <button
               type="button"
               onClick={() => setActiveTab("picks")}
-              className={`px-2.5 py-1.5 lg:px-3 lg:py-2 text-xs font-medium rounded-lg transition-all flex items-center space-x-1.5 ${
+              className={`px-3 py-1.5 lg:px-3.5 lg:py-2 text-xs font-semibold rounded-lg transition-all flex items-center space-x-1.5 ${
                 activeTab === "picks"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
             >
-              <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>Week {selectedWeek} Picks</span>
+              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" strokeWidth={2.5} />
+              <span>Picks</span>
             </button>
 
-            {/* 2. Weekly Scoreboard */}
+            {/* 2. Scoreboard */}
             <button
               type="button"
               onClick={() => setActiveTab("scoreboard")}
-              className={`px-2.5 py-1.5 lg:px-3 lg:py-2 text-xs font-medium rounded-lg transition-all flex items-center space-x-1.5 ${
+              className={`px-3 py-1.5 lg:px-3.5 lg:py-2 text-xs font-semibold rounded-lg transition-all flex items-center space-x-1.5 ${
                 activeTab === "scoreboard"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
             >
-              <Activity className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <SevenSegmentIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               <span>Scoreboard</span>
             </button>
 
-            {/* 3. Season Leaderboard */}
+            {/* 3. Standings */}
             <button
               type="button"
               onClick={() => setActiveTab("leaderboard")}
-              className={`px-2.5 py-1.5 lg:px-3 lg:py-2 text-xs font-medium rounded-lg transition-all flex items-center space-x-1.5 ${
+              className={`px-3 py-1.5 lg:px-3.5 lg:py-2 text-xs font-semibold rounded-lg transition-all flex items-center space-x-1.5 ${
                 activeTab === "leaderboard"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
             >
-              <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>Leaderboard</span>
+              <Podium className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>Standings</span>
             </button>
 
             {/* 4. Rules */}
             <button
               type="button"
               onClick={() => setActiveTab("rules")}
-              className={`px-2.5 py-1.5 lg:px-3 lg:py-2 text-xs font-medium rounded-lg transition-all flex items-center space-x-1.5 ${
+              className={`px-3 py-1.5 lg:px-3.5 lg:py-2 text-xs font-semibold rounded-lg transition-all flex items-center space-x-1.5 ${
                 activeTab === "rules"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
               }`}
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <Ruler className="w-3.5 h-3.5 text-sky-400 shrink-0" />
               <span>Rules</span>
             </button>
           </nav>
@@ -245,41 +245,41 @@ export function Navbar({
             <button
               type="button"
               onClick={() => setActiveTab("picks")}
-              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col xs:flex-row items-center justify-center space-y-0.5 xs:space-y-0 xs:space-x-1 ${
+              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col items-center justify-center space-y-0.5 ${
                 activeTab === "picks"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700/80"
                   : "text-zinc-400 hover:text-white"
               }`}
             >
-              <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="truncate">Wk {selectedWeek}</span>
+              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" strokeWidth={2.5} />
+              <span className="truncate">Picks</span>
             </button>
 
             {/* 2. Scoreboard */}
             <button
               type="button"
               onClick={() => setActiveTab("scoreboard")}
-              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col xs:flex-row items-center justify-center space-y-0.5 xs:space-y-0 xs:space-x-1 ${
+              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col items-center justify-center space-y-0.5 ${
                 activeTab === "scoreboard"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700/80"
                   : "text-zinc-400 hover:text-white"
               }`}
             >
-              <Activity className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="truncate">Scores</span>
+              <SevenSegmentIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="truncate">Scoreboard</span>
             </button>
 
-            {/* 3. Leaderboard */}
+            {/* 3. Standings */}
             <button
               type="button"
               onClick={() => setActiveTab("leaderboard")}
-              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col xs:flex-row items-center justify-center space-y-0.5 xs:space-y-0 xs:space-x-1 ${
+              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col items-center justify-center space-y-0.5 ${
                 activeTab === "leaderboard"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700/80"
                   : "text-zinc-400 hover:text-white"
               }`}
             >
-              <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <Podium className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span className="truncate">Standings</span>
             </button>
 
@@ -287,13 +287,13 @@ export function Navbar({
             <button
               type="button"
               onClick={() => setActiveTab("rules")}
-              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col xs:flex-row items-center justify-center space-y-0.5 xs:space-y-0 xs:space-x-1 ${
+              className={`py-2 text-[11px] font-semibold rounded-lg transition-all flex flex-col items-center justify-center space-y-0.5 ${
                 activeTab === "rules"
                   ? "bg-zinc-800 text-white shadow-sm border border-zinc-700/80"
                   : "text-zinc-400 hover:text-white"
               }`}
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <Ruler className="w-3.5 h-3.5 text-sky-400 shrink-0" />
               <span className="truncate">Rules</span>
             </button>
           </div>

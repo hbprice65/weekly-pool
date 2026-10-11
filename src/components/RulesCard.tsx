@@ -1,18 +1,18 @@
 "use client";
 
 import React from "react";
-import { CheckCircle2, AlertCircle, Clock, Award, ShieldAlert } from "lucide-react";
+import { CheckCircle2, AlertCircle, Clock, Ruler, ShieldAlert } from "lucide-react";
 
 export function RulesCard() {
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6">
       <div>
         <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-          <Award className="w-5 h-5 text-emerald-400" />
-          <span>NFL Weekly Pool Rules & Scoring</span>
+          <Ruler className="w-5 h-5 text-sky-400" />
+          <span>Pool Rules & Guidelines</span>
         </h2>
         <p className="text-xs text-zinc-400 mt-1">
-          Official competition guidelines for weekly matchup selection and season standings
+          Official contest guidelines for weekly picks, scoring, and tiebreakers
         </p>
       </div>
 
