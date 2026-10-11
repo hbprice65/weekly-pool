@@ -379,10 +379,14 @@ export async function fetchLiveLeaderboard(
       return MOCK_LEADERBOARD;
     }
 
-    // 2. Fetch all picks across all weeks
-    const { data: allPicks } = await supabase
+    // 2. Fetch all picks across all weeks (selecting valid schema columns)
+    const { data: allPicks, error: picksErr } = await supabase
       .from("picks")
-      .select("user_id, game_id, selected_team, is_correct, points, points_awarded");
+      .select("user_id, game_id, selected_team, is_correct, points, week_number");
+
+    if (picksErr) {
+      console.warn("Notice: could not fetch picks from Supabase:", picksErr.message);
+    }
 
     // 3. Fetch tiebreakers for the target week
     const { data: allTiebreakers } = await supabase
