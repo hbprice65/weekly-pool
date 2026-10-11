@@ -11,9 +11,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ExternalLink,
   ShieldCheck,
-  Settings,
 } from "lucide-react";
 
 export interface AuthUser {
@@ -68,8 +66,6 @@ export function AuthModal({
   const [message, setMessage] = useState<{
     type: "success" | "error" | "warning";
     text: string;
-    isRateLimit?: boolean;
-    isGoogleConfigNeeded?: boolean;
   } | null>(null);
 
   if (!isOpen) return null;
@@ -78,7 +74,7 @@ export function AuthModal({
 
   const handleGoogleSignIn = async () => {
     if (!supabase) {
-      setMessage({ type: "error", text: "Supabase client is not configured." });
+      setMessage({ type: "error", text: "Service temporarily unavailable." });
       return;
     }
 
@@ -103,21 +99,12 @@ export function AuthModal({
       });
 
       if (error) {
-        const isNotEnabled =
-          error.message.toLowerCase().includes("not enabled") ||
-          error.message.toLowerCase().includes("unsupported provider") ||
-          error.message.toLowerCase().includes("invalid_client");
-
         setMessage({
           type: "error",
-          text: isNotEnabled
-            ? "Google Sign-In is not enabled yet in your Supabase project."
-            : error.message,
-          isGoogleConfigNeeded: isNotEnabled,
+          text: error.message || "Google sign-in failed. Please try with email.",
         });
         setGoogleLoading(false);
       }
-      // If successful, the browser redirects automatically to Google's login flow
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setMessage({ type: "error", text: msg });
@@ -128,7 +115,7 @@ export function AuthModal({
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) {
-      setMessage({ type: "error", text: "Supabase client is not configured." });
+      setMessage({ type: "error", text: "Service temporarily unavailable." });
       return;
     }
 
@@ -143,15 +130,7 @@ export function AuthModal({
         });
 
         if (error) {
-          if (error.message.toLowerCase().includes("email not confirmed")) {
-            setMessage({
-              type: "warning",
-              text: "Email not confirmed. To sign in without email verification, disable 'Confirm email' in your Supabase Dashboard (Auth > Providers > Email).",
-              isRateLimit: true,
-            });
-          } else {
-            setMessage({ type: "error", text: error.message });
-          }
+          setMessage({ type: "error", text: error.message });
         } else {
           setMessage({ type: "success", text: "Successfully signed in!" });
           setTimeout(() => {
@@ -166,15 +145,9 @@ export function AuthModal({
         });
 
         if (error) {
-          const isRate =
-            error.message.toLowerCase().includes("rate limit") ||
-            error.message.toLowerCase().includes("rate_limit");
           setMessage({
             type: "error",
-            text: isRate
-              ? "Supabase Email Rate Limit Exceeded: The free default email service allows only 3 confirmation emails per hour."
-              : error.message,
-            isRateLimit: isRate,
+            text: error.message,
           });
         } else if (data.session) {
           setMessage({ type: "success", text: "Account created and signed in!" });
@@ -185,8 +158,7 @@ export function AuthModal({
         } else {
           setMessage({
             type: "warning",
-            text: "Account registered, but awaiting email confirmation. To bypass email confirmation and log in instantly, disable 'Confirm email' in Supabase.",
-            isRateLimit: true,
+            text: "Account registered! Check your email to confirm your account.",
           });
         }
       }
@@ -237,8 +209,8 @@ export function AuthModal({
           </div>
           <p className="text-xs text-zinc-400">
             {currentUser
-              ? "Your picks are tied directly to your profile in Supabase."
-              : "Sign in to save and verify your weekly picks and rank on the live pool leaderboard."}
+              ? "Signed in profile and account settings."
+              : "Sign in to save your picks and join the live leaderboard."}
           </p>
         </div>
 
@@ -271,16 +243,9 @@ export function AuthModal({
                 </span>
               </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-zinc-400">Supabase User ID:</span>
-                <span className="font-mono text-[11px] text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40 max-w-[210px] truncate">
-                  {currentUser.id}
-                </span>
-              </div>
-
               <div className="flex items-center space-x-1.5 pt-1 text-emerald-400 text-[11px]">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Picks will sync to public.picks for this account</span>
+                <span>Picks synced to this account</span>
               </div>
             </div>
 
@@ -400,7 +365,7 @@ export function AuthModal({
               {/* Message alert */}
               {message && (
                 <div
-                  className={`p-3 rounded-xl text-xs space-y-2 border ${
+                  className={`p-3 rounded-xl text-xs flex items-start space-x-2 border ${
                     message.type === "success"
                       ? "bg-emerald-950/40 text-emerald-300 border-emerald-800/60"
                       : message.type === "warning"
@@ -408,69 +373,12 @@ export function AuthModal({
                       : "bg-rose-950/40 text-rose-300 border-rose-800/60"
                   }`}
                 >
-                  <div className="flex items-start space-x-2">
-                    {message.type === "success" ? (
-                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
-                    )}
-                    <span>{message.text}</span>
-                  </div>
-
-                  {/* Direct Solution Box for Supabase Google Provider Config */}
-                  {message.isGoogleConfigNeeded && (
-                    <div className="mt-2 pt-2 border-t border-rose-800/40 bg-black/40 p-2.5 rounded-lg text-[11px] text-zinc-300 space-y-1.5">
-                      <div className="font-semibold text-amber-300 flex items-center space-x-1.5">
-                        <Settings className="w-3.5 h-3.5" />
-                        <span>How to Enable Google Sign-In:</span>
-                      </div>
-                      <ol className="list-decimal list-inside space-y-1 text-zinc-300">
-                        <li>
-                          Open Supabase Dashboard:{" "}
-                          <a
-                            href="https://supabase.com/dashboard/project/kweiahuyxdvupsglfhzl/auth/providers"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-emerald-400 underline font-medium inline-flex items-center space-x-0.5"
-                          >
-                            <span>Auth &gt; Providers &gt; Google</span>
-                            <ExternalLink className="w-2.5 h-2.5 inline" />
-                          </a>
-                        </li>
-                        <li>Toggle <strong>&ldquo;Enable Sign in with Google&rdquo;</strong> to <strong>ON</strong>.</li>
-                        <li>Add your Google OAuth Client ID &amp; Secret from Google Cloud Console.</li>
-                        <li>Click <strong>Save</strong>.</li>
-                      </ol>
-                    </div>
+                  {message.type === "success" ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
                   )}
-
-                  {/* Direct Solution Box for Supabase Rate Limit */}
-                  {message.isRateLimit && (
-                    <div className="mt-2 pt-2 border-t border-rose-800/40 bg-black/40 p-2.5 rounded-lg text-[11px] text-zinc-300 space-y-1.5">
-                      <div className="font-semibold text-amber-300 flex items-center space-x-1.5">
-                        <Settings className="w-3.5 h-3.5" />
-                        <span>Instant Fix for Email Limit:</span>
-                      </div>
-                      <ol className="list-decimal list-inside space-y-1 text-zinc-300">
-                        <li>
-                          Go to your Supabase Dashboard:{" "}
-                          <a
-                            href="https://supabase.com/dashboard/project/kweiahuyxdvupsglfhzl/auth/providers"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-emerald-400 underline font-medium inline-flex items-center space-x-0.5"
-                          >
-                            <span>Auth &gt; Providers &gt; Email</span>
-                            <ExternalLink className="w-2.5 h-2.5 inline" />
-                          </a>
-                        </li>
-                        <li>
-                          Toggle <strong>&ldquo;Confirm email&rdquo;</strong> to <strong>OFF</strong>.
-                        </li>
-                        <li>Click <strong>Save</strong>.</li>
-                      </ol>
-                    </div>
-                  )}
+                  <span>{message.text}</span>
                 </div>
               )}
 

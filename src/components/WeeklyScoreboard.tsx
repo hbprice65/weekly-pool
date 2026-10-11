@@ -6,7 +6,6 @@ import {
   Check,
   X,
   Search,
-  RefreshCw,
   Lock,
 } from "lucide-react";
 import { SevenSegmentIcon } from "@/components/SevenSegmentIcon";
@@ -17,9 +16,6 @@ interface WeeklyScoreboardProps {
   entries: LeaderboardEntry[];
   currentUserId?: string;
   currentUserPicks?: Record<string, string>;
-  selectedWeek?: number;
-  onRefresh?: () => void;
-  isRefreshing?: boolean;
 }
 
 export function WeeklyScoreboard({
@@ -27,9 +23,6 @@ export function WeeklyScoreboard({
   entries,
   currentUserId,
   currentUserPicks,
-  selectedWeek,
-  onRefresh,
-  isRefreshing = false,
 }: WeeklyScoreboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -78,98 +71,45 @@ export function WeeklyScoreboard({
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      {/* Week Scoreboard Header */}
-      <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-            <h2 className="text-base sm:text-xl font-bold text-white flex items-center space-x-2">
-              <SevenSegmentIcon className="w-5 h-5 text-emerald-400 shrink-0" />
-              <span>Week {selectedWeek} Scoreboard</span>
-            </h2>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
-              ESPN Official Data
-            </span>
-          </div>
-          <p className="text-xs text-zinc-400 mt-1">
-            Live matchup scores, participant pick results, and weekly standings.
-          </p>
+      {/* Scoreboard Header */}
+      <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex items-center space-x-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+          <h2 className="text-base sm:text-xl font-bold text-white flex items-center space-x-2">
+            <SevenSegmentIcon className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>Scoreboard</span>
+          </h2>
         </div>
 
-        {/* Right: Controls (Row 1) & Streamlined Legend (Row 2) */}
-        <div className="flex flex-col sm:items-start lg:items-end gap-2.5 shrink-0">
-          {/* Row 1: Status Badges, Search & Refresh Button */}
-          <div className="flex flex-wrap items-center gap-2 sm:justify-start lg:justify-end">
-            <span className="text-[11px] bg-zinc-800 text-zinc-300 px-2.5 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5 shrink-0">
+        {/* Status Badges & Search */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] bg-zinc-800 text-zinc-300 px-2.5 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+            <span>{finalGamesCount} Final</span>
+          </span>
+
+          {inProgressCount > 0 && (
+            <span className="text-[11px] bg-emerald-950/80 text-emerald-300 px-2.5 py-1.5 rounded-lg border border-emerald-700/80 font-bold flex items-center space-x-1.5 animate-pulse shrink-0">
               <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-              <span>{finalGamesCount} Final</span>
+              <span>{inProgressCount} Live</span>
             </span>
+          )}
 
-            {inProgressCount > 0 && (
-              <span className="text-[11px] bg-emerald-950/80 text-emerald-300 px-2.5 py-1.5 rounded-lg border border-emerald-700/80 font-bold flex items-center space-x-1.5 animate-pulse shrink-0">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                <span>{inProgressCount} Live Now</span>
-              </span>
-            )}
+          <span className="text-[11px] bg-zinc-800 text-zinc-300 px-2.5 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
+            <span>{scheduledGamesCount} Upcoming</span>
+          </span>
 
-            <span className="text-[11px] bg-zinc-800 text-zinc-300 px-2.5 py-1.5 rounded-lg border border-zinc-700/80 font-medium flex items-center space-x-1.5 shrink-0">
-              <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
-              <span>{scheduledGamesCount} Upcoming</span>
-            </span>
-
-            {/* Participant Search */}
-            <div className="relative w-36 xs:w-44 sm:w-48">
-              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search player..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 text-white text-xs pl-8 pr-2.5 py-1.5 rounded-lg focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            {onRefresh && (
-              <button
-                type="button"
-                onClick={onRefresh}
-                disabled={isRefreshing}
-                className="p-1.5 px-3 bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-200 hover:text-white transition flex items-center space-x-1.5 active:scale-95 disabled:opacity-50 shrink-0"
-              >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 text-emerald-400 ${
-                    isRefreshing ? "animate-spin" : ""
-                  }`}
-                />
-                <span className="hidden xs:inline">{isRefreshing ? "Refreshing..." : "Refresh Scores"}</span>
-              </button>
-            )}
-          </div>
-
-          {/* Row 2: Streamlined Legend */}
-          <div className="flex flex-wrap items-center gap-2 text-xs sm:justify-start lg:justify-end">
-            <span className="flex items-center space-x-1.5 text-zinc-300 text-[11px] font-medium bg-zinc-800/80 px-2.5 py-1 rounded-lg border border-zinc-700/60 shrink-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-              <span>Live: Team Icon</span>
-            </span>
-            <span className="flex items-center space-x-1.5 text-emerald-300 text-[11px] font-medium bg-emerald-950/50 px-2.5 py-1 rounded-lg border border-emerald-700/60 shrink-0">
-              <span className="w-3.5 h-3.5 rounded bg-emerald-600 flex items-center justify-center text-white text-[9px] font-bold shrink-0">
-                ✓
-              </span>
-              <span>Final Correct</span>
-            </span>
-            <span className="flex items-center space-x-1.5 text-rose-300 text-[11px] font-medium bg-rose-950/50 px-2.5 py-1 rounded-lg border border-rose-800/60 shrink-0">
-              <span className="w-3.5 h-3.5 rounded bg-rose-600 flex items-center justify-center text-white text-[9px] font-bold shrink-0">
-                ✕
-              </span>
-              <span>Final Incorrect</span>
-            </span>
-            {!isMnfStarted && (
-              <span className="flex items-center space-x-1 text-purple-300/90 text-[11px] font-medium bg-purple-950/40 px-2.5 py-1 rounded-lg border border-purple-800/50 shrink-0">
-                <Lock className="w-3 h-3 text-purple-400 shrink-0" />
-                <span>Tiebreaker hidden until MNF</span>
-              </span>
-            )}
+          {/* Participant Search */}
+          <div className="relative w-36 xs:w-44 sm:w-48">
+            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search player..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 text-white text-xs pl-8 pr-2.5 py-1.5 rounded-lg focus:outline-none focus:border-emerald-500"
+            />
           </div>
         </div>
       </div>
@@ -222,9 +162,7 @@ export function WeeklyScoreboard({
                     <div className="inline-flex items-center justify-center space-x-1">
                       <span>MNF Tie</span>
                       {!isMnfStarted && (
-                        <span title="Tiebreaker predictions remain hidden until MNF kickoff">
-                          <Lock className="w-3 h-3 text-purple-400 shrink-0" />
-                        </span>
+                        <Lock className="w-3 h-3 text-purple-400 shrink-0" />
                       )}
                     </div>
                   </th>
@@ -303,10 +241,7 @@ export function WeeklyScoreboard({
                               className="px-2 py-2 text-center whitespace-nowrap border-r border-zinc-800/60"
                             >
                               {pickedTeam ? (
-                                <div
-                                  className="inline-flex items-center justify-center space-x-1 px-1.5 py-1 rounded-md text-[10px] font-medium bg-zinc-800/80 border border-zinc-700/60 text-zinc-400"
-                                  title="Pick hidden until kickoff"
-                                >
+                                <div className="inline-flex items-center justify-center space-x-1 px-1.5 py-1 rounded-md text-[10px] font-medium bg-zinc-800/80 border border-zinc-700/60 text-zinc-400">
                                   <Lock className="w-2.5 h-2.5 text-zinc-400 shrink-0" />
                                   <span>Hidden</span>
                                 </div>
@@ -441,10 +376,7 @@ export function WeeklyScoreboard({
                               </span>
                             </div>
                           ) : (
-                            <div
-                              className="inline-flex items-center justify-center space-x-1 px-1.5 py-0.5 rounded bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 text-[10px] font-medium"
-                              title="Hidden until Monday Night Football kicks off"
-                            >
+                            <div className="inline-flex items-center justify-center space-x-1 px-1.5 py-0.5 rounded bg-zinc-800/80 border border-zinc-700/60 text-zinc-400 text-[10px] font-medium">
                               <Lock className="w-2.5 h-2.5 text-zinc-400 shrink-0" />
                               <span>Hidden</span>
                             </div>
