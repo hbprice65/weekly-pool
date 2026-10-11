@@ -32,10 +32,10 @@ export function RulesCard() {
         <div className="bg-zinc-950/60 border border-zinc-800/80 rounded-lg p-4 space-y-2">
           <h3 className="text-sm font-semibold text-white flex items-center space-x-2">
             <Clock className="w-4 h-4 text-amber-400" />
-            <span>2. Kickoff Pick Locks</span>
+            <span>2. Kickoff Locks & Future Weeks</span>
           </h3>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Each individual game locks automatically at official kickoff time. You can edit your picks for upcoming games right up until kickoff.
+            Each individual game locks automatically at its scheduled kickoff time. You can preview upcoming schedules for future weeks anytime, but picks remain locked until each week officially begins.
           </p>
         </div>
 

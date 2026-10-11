@@ -16,7 +16,7 @@ import {
   fetchLiveLeaderboard,
   fetchWeekGames,
 } from "@/lib/supabase/picks-service";
-import { fetchCurrentActiveNFLWeek } from "@/lib/api/nfl";
+import { fetchCurrentActiveNFLWeek, calculateFallbackWeek } from "@/lib/api/nfl";
 import { Game, LeaderboardEntry } from "@/types";
 import {
   Check,
@@ -34,12 +34,14 @@ import {
   LogIn,
   Activity,
   RefreshCw,
+  Lock,
 } from "lucide-react";
 import { SevenSegmentIcon } from "@/components/SevenSegmentIcon";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<NavTab>("picks");
-  const [selectedWeek, setSelectedWeek] = useState<number>(5);
+  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [currentActiveWeek, setCurrentActiveWeek] = useState<number>(1);
 
   const [userPicks, setUserPicks] = useState<Record<string, string>>({});
   const [mnfPrediction, setMnfPrediction] = useState<string>("45");
@@ -153,8 +155,27 @@ export default function Home() {
   // 4. Detect live active NFL week on initial mount if not specified in URL
   useEffect(() => {
     let isMounted = true;
+    const fallback = calculateFallbackWeek();
+    if (isMounted) {
+      setCurrentActiveWeek(fallback);
+      setSelectedWeek((prev) => {
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          const weekParam = params.get("week");
+          if (weekParam) {
+            const parsed = parseInt(weekParam, 10);
+            if (!isNaN(parsed) && parsed >= 1 && parsed <= 22) {
+              return parsed;
+            }
+          }
+        }
+        return fallback;
+      });
+    }
+
     fetchCurrentActiveNFLWeek().then(({ currentWeek }) => {
       if (isMounted && currentWeek) {
+        setCurrentActiveWeek(currentWeek);
         setSelectedWeek((prev) => {
           if (typeof window !== "undefined") {
             const params = new URLSearchParams(window.location.search);
@@ -290,7 +311,10 @@ export default function Home() {
     loadWeekData(selectedWeek, true);
   };
 
+  const isFutureWeek = selectedWeek > currentActiveWeek;
+
   const handleSelectPick = (gameId: string, teamId: string) => {
+    if (isFutureWeek) return;
     setUserPicks((prev) => {
       const updated = { ...prev, [gameId]: teamId };
       return updated;
@@ -299,6 +323,14 @@ export default function Home() {
   };
 
   const handleSavePicks = async () => {
+    if (isFutureWeek) {
+      setSaveStatus({
+        type: "info",
+        message: `Picks for Week ${selectedWeek} are locked until this week officially begins.`,
+      });
+      return;
+    }
+
     setIsSaving(true);
     setSaveStatus(null);
 
@@ -350,6 +382,7 @@ export default function Home() {
   };
 
   const handleStepMnf = (delta: number) => {
+    if (isFutureWeek) return;
     const current = parseInt(mnfPrediction, 10) || 45;
     const nextVal = Math.max(0, Math.min(120, current + delta));
     setMnfPrediction(String(nextVal));
@@ -585,21 +618,27 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={handleSavePicks}
-                  disabled={isSaving}
+                  disabled={isSaving || isFutureWeek}
                   className={`px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all shadow-md flex items-center space-x-2 active:scale-95 touch-manipulation ${
-                    allPicksMade
+                    isFutureWeek
+                      ? "bg-zinc-800 text-zinc-400 cursor-not-allowed border border-zinc-700/60"
+                      : allPicksMade
                       ? "bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20"
                       : "bg-zinc-100 hover:bg-white text-zinc-950"
                   }`}
                 >
                   {isSaving ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isFutureWeek ? (
+                    <Lock className="w-4 h-4 text-amber-400" />
                   ) : (
                     <Save className="w-4 h-4" />
                   )}
                   <span>
                     {isSaving
                       ? "Saving..."
+                      : isFutureWeek
+                      ? "Picks Locked"
                       : allPicksMade
                       ? "Submit All Picks"
                       : "Save Current Picks"}
@@ -628,6 +667,21 @@ export default function Home() {
               </div>
             )}
 
+            {/* Future Week Notice Banner */}
+            {isFutureWeek && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 sm:p-4 flex items-start space-x-3 text-amber-200 shadow-sm">
+                <Lock className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-xs sm:text-sm space-y-1">
+                  <div className="font-semibold text-amber-300">
+                    Week {selectedWeek} Schedule Preview &mdash; Picks Locked
+                  </div>
+                  <div className="text-zinc-300 leading-relaxed">
+                    You can preview upcoming matchups, kickoff dates, and broadcast networks in advance. Making and submitting picks will unlock once Week {selectedWeek} officially begins (Current active week: Week {currentActiveWeek}).
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Games Matchup List */}
             <div className="grid grid-cols-1 gap-3 sm:gap-4">
               {weekGames.map((game) => (
@@ -636,6 +690,7 @@ export default function Home() {
                   game={game}
                   selectedTeamId={userPicks[game.id]}
                   onSelectPick={handleSelectPick}
+                  isLocked={isFutureWeek}
                 />
               ))}
             </div>
@@ -665,11 +720,12 @@ export default function Home() {
                 <span className="text-xs font-medium text-zinc-300">
                   Predicted Total Points:
                 </span>
-                <div className="flex items-center space-x-1.5 bg-zinc-950 border border-zinc-800 rounded-xl p-1">
+                <div className={`flex items-center space-x-1.5 bg-zinc-950 border border-zinc-800 rounded-xl p-1 ${isFutureWeek ? "opacity-60" : ""}`}>
                   <button
                     type="button"
                     onClick={() => handleStepMnf(-1)}
-                    className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center justify-center transition active:scale-90"
+                    disabled={isFutureWeek}
+                    className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center justify-center transition active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Decrease score prediction"
                   >
                     <Minus className="w-3.5 h-3.5" />
@@ -681,16 +737,18 @@ export default function Home() {
                     min="0"
                     max="120"
                     value={mnfPrediction}
+                    disabled={isFutureWeek}
                     onChange={(e) => {
                       setMnfPrediction(e.target.value);
                       setSaveStatus(null);
                     }}
-                    className="w-16 text-center py-1 bg-transparent text-sm font-bold text-white focus:outline-none"
+                    className="w-16 text-center py-1 bg-transparent text-sm font-bold text-white focus:outline-none disabled:text-zinc-500 disabled:cursor-not-allowed"
                   />
                   <button
                     type="button"
                     onClick={() => handleStepMnf(1)}
-                    className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center justify-center transition active:scale-90"
+                    disabled={isFutureWeek}
+                    className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center justify-center transition active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Increase score prediction"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -699,10 +757,11 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={handleSavePicks}
-                  disabled={isSaving}
-                  className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3.5 py-2 rounded-xl border border-zinc-700 transition active:scale-95 font-medium"
+                  disabled={isSaving || isFutureWeek}
+                  className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3.5 py-2 rounded-xl border border-zinc-700 transition active:scale-95 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1.5"
                 >
-                  Save Tiebreaker
+                  {isFutureWeek && <Lock className="w-3 h-3 text-amber-400" />}
+                  <span>{isFutureWeek ? "Tiebreaker Locked" : "Save Tiebreaker"}</span>
                 </button>
               </div>
             </div>
@@ -737,52 +796,66 @@ export default function Home() {
       {/* MOBILE FLOATING ACTION BAR: Stays pinned within thumb reach on phones (< sm) */}
       {activeTab === "picks" && (
         <div className="sm:hidden fixed bottom-3 left-3 right-3 z-30 bg-zinc-900/95 border border-zinc-700/80 backdrop-blur-lg p-3 rounded-2xl shadow-2xl shadow-black/80 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center space-x-1.5">
-              <span className="text-xs font-bold text-white">
-                {pickedCount} of {totalGames} Picks
+          {isFutureWeek ? (
+            <div className="w-full flex items-center justify-between py-1 px-1">
+              <div className="flex items-center space-x-2 text-amber-300">
+                <Lock className="w-4 h-4 shrink-0" />
+                <span className="text-xs font-bold">Week {selectedWeek} Locked</span>
+              </div>
+              <span className="text-[11px] text-zinc-400 bg-zinc-800 px-2.5 py-1 rounded-full border border-zinc-700 font-medium">
+                Schedule Preview
               </span>
-              {allPicksMade && (
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.2 rounded font-bold">
-                  Complete
-                </span>
-              )}
             </div>
-            {/* Progress bar */}
-            <div className="w-28 xs:w-36 bg-zinc-800 h-1.5 rounded-full overflow-hidden mt-1">
-              <div
-                className="bg-emerald-400 h-full rounded-full transition-all duration-300"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="min-w-0">
+                <div className="flex items-center space-x-1.5">
+                  <span className="text-xs font-bold text-white">
+                    {pickedCount} of {totalGames} Picks
+                  </span>
+                  {allPicksMade && (
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.2 rounded font-bold">
+                      Complete
+                    </span>
+                  )}
+                </div>
+                {/* Progress bar */}
+                <div className="w-28 xs:w-36 bg-zinc-800 h-1.5 rounded-full overflow-hidden mt-1">
+                  <div
+                    className="bg-emerald-400 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
 
-          <button
-            type="button"
-            onClick={handleSavePicks}
-            disabled={isSaving}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md flex items-center space-x-1.5 active:scale-95 touch-manipulation shrink-0 ${
-              saveStatus?.type === "success"
-                ? "bg-emerald-600 text-white"
-                : allPicksMade
-                ? "bg-emerald-400 text-zinc-950 shadow-emerald-400/20"
-                : "bg-white text-zinc-950"
-            }`}
-          >
-            {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
-            ) : saveStatus?.type === "success" ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-white" />
-                <span>Saved!</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>{allPicksMade ? "Submit" : "Save"}</span>
-              </>
-            )}
-          </button>
+              <button
+                type="button"
+                onClick={handleSavePicks}
+                disabled={isSaving}
+                className={`px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md flex items-center space-x-1.5 active:scale-95 touch-manipulation shrink-0 ${
+                  saveStatus?.type === "success"
+                    ? "bg-emerald-600 text-white"
+                    : allPicksMade
+                    ? "bg-emerald-400 text-zinc-950 shadow-emerald-400/20"
+                    : "bg-white text-zinc-950"
+                }`}
+              >
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
+                ) : saveStatus?.type === "success" ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                    <span>Saved!</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>{allPicksMade ? "Submit" : "Save"}</span>
+                  </>
+                )}
+              </button>
+            </>
+          )}
         </div>
       )}
 

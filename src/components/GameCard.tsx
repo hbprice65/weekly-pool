@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Game } from "@/types";
-import { CheckCircle2, Clock, Tv, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Tv, XCircle, Lock } from "lucide-react";
 
 interface GameCardProps {
   game: Game;
@@ -74,12 +74,23 @@ export function GameCard({
               <Clock className="w-3 h-3 text-amber-400 shrink-0" />
               <span>LOCKED • Kickoff Passed</span>
             </span>
+          ) : isLocked ? (
+            <span className="bg-zinc-800 text-zinc-400 border border-zinc-700/80 font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider flex items-center space-x-1">
+              <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+              <span>LOCKED • Future Week</span>
+            </span>
           ) : (
             <span className="flex items-center space-x-1 font-medium text-zinc-300">
               <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-zinc-400 shrink-0" />
               <span>
                 {formattedDate} • {formattedTime}
               </span>
+            </span>
+          )}
+
+          {isLocked && !isFinal && !isLive && !isPastKickoff && (
+            <span className="flex items-center space-x-1 text-zinc-400 text-[11px] font-medium hidden xs:inline-flex">
+              <span>{formattedDate} • {formattedTime}</span>
             </span>
           )}
 
@@ -112,6 +123,8 @@ export function GameCard({
                 : isAwayWrong
                 ? "bg-rose-950/30 border-rose-600/60 shadow-sm"
                 : "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-950/30 ring-1 ring-emerald-500/30"
+              : effectivelyLocked
+              ? "bg-zinc-900/60 border-zinc-800/80 text-zinc-400"
               : "bg-zinc-800/40 border-zinc-800 hover:bg-zinc-800/80 hover:border-zinc-700"
           } ${effectivelyLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
         >
@@ -205,6 +218,8 @@ export function GameCard({
                 : isHomeWrong
                 ? "bg-rose-950/30 border-rose-600/60 shadow-sm"
                 : "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-950/30 ring-1 ring-emerald-500/30"
+              : effectivelyLocked
+              ? "bg-zinc-900/60 border-zinc-800/80 text-zinc-400"
               : "bg-zinc-800/40 border-zinc-800 hover:bg-zinc-800/80 hover:border-zinc-700"
           } ${effectivelyLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
         >

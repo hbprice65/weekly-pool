@@ -190,6 +190,16 @@ export async function saveUserPicksToSupabase(
   }
 
   try {
+    // Validate that target week is not in the future
+    const activeWeek = calculateFallbackWeek();
+    if (targetWeek > activeWeek) {
+      return {
+        success: false,
+        error: `Picks for Week ${targetWeek} are locked. Picks will open when this week officially begins.`,
+        userId,
+      };
+    }
+
     const pickEntries = Object.entries(picks);
     if (pickEntries.length === 0) {
       return { success: true, savedCount: 0, userId };
