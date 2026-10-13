@@ -129,11 +129,13 @@ export async function fetchUserPicksFromSupabase(
 
   try {
     // 1. Fetch picks for this user for the target week
-    let { data: picksData, error: picksError } = await supabase
+    const { data: initialPicks, error: picksError } = await supabase
       .from("picks")
       .select("game_id, selected_team, week_number")
       .eq("user_id", userId)
       .eq("week_number", targetWeek);
+
+    let picksData = initialPicks;
 
     // Fallback for legacy rows where week_number was null: query by game IDs of this week's slate
     if ((!picksData || picksData.length === 0) && games && games.length > 0) {

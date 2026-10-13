@@ -131,7 +131,6 @@ export function GameCard({
             {/* Team Logo or Colored Chip */}
             {game.awayTeam.logoUrl && !awayImgError ? (
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-zinc-950/60 p-1 flex items-center justify-center shrink-0 border border-zinc-800">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={game.awayTeam.logoUrl}
                   alt={game.awayTeam.fullName}
@@ -225,7 +224,6 @@ export function GameCard({
             {/* Team Logo or Colored Chip */}
             {game.homeTeam.logoUrl && !homeImgError ? (
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-zinc-950/60 p-1 flex items-center justify-center shrink-0 border border-zinc-800">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={game.homeTeam.logoUrl}
                   alt={game.homeTeam.fullName}
