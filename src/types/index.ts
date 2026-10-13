@@ -227,6 +227,41 @@ export interface UserProfile {
 }
 
 /**
+ * Tracked win-loss pick record on completed games.
+ * Note: Unpicked / blank games are intentionally NOT counted as losses.
+ */
+export interface PickRecord {
+  /** Winning picks on completed games */
+  wins: number;
+  /** Losing picks on completed games (excludes unpicked / blank games) */
+  losses: number;
+  /** Tied picks on completed games */
+  ties?: number;
+  /** Total decided games evaluated (wins + losses + ties) */
+  evaluatedPicks: number;
+  /** Percentage of evaluated picks won (0 to 100) */
+  winPct: number;
+  /** Formatted record string, e.g. "45-13" */
+  formatted: string;
+}
+
+/**
+ * Lifetime / all-time participant career performance across all pool seasons.
+ */
+export interface LifetimeStats {
+  /** Cumulative career points across all seasons */
+  totalPoints: number;
+  /** All-time pick record on completed games */
+  record: PickRecord;
+  /** All-time weekly slates won (had most points in week) */
+  weeksWon: number;
+  /** All-time career rank */
+  rank?: number;
+  /** Number of seasons participated */
+  seasonsCount: number;
+}
+
+/**
  * Computed standings record for leaderboards and scoreboards.
  */
 export interface LeaderboardEntry {
@@ -254,4 +289,11 @@ export interface LeaderboardEntry {
   predictedMnfScore?: number;
   /** Map of gameId -> selectedTeamId for the "Who Picked Who" matrix */
   picks?: Record<string, string>;
+
+  /** Number of weekly slates won (highest points in week) during current season */
+  seasonWeeksWon: number;
+  /** Overall picks record for current season (blank games not counted against) */
+  seasonRecord: PickRecord;
+  /** Career lifetime statistics across all seasons */
+  lifetimeStats?: LifetimeStats;
 }

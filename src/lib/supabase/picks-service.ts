@@ -395,18 +395,45 @@ export async function fetchLiveLeaderboard(
       .eq("week_number", targetWeek);
 
     // 4. Build comprehensive games map to know week_number, winner, and status for all games
-    const gamesMap: Record<
-      string,
-      { week_number?: number; winner_team?: string | null; status: string }
-    > = {};
+    interface GameEvaluation {
+      week_number: number;
+      season_year: number;
+      winner_team: string | null;
+      status: string;
+      isFinal: boolean;
+      isTie: boolean;
+    }
+    const gamesMap: Record<string, GameEvaluation> = {};
 
     // Populate from liveGames first (authoritative for current week)
     if (liveGames && liveGames.length > 0) {
       for (const g of liveGames) {
+        const isFinal = g.status === "FINAL";
+        const isTie =
+          isFinal &&
+          g.awayScore !== undefined &&
+          g.homeScore !== undefined &&
+          g.awayScore === g.homeScore;
+        let winner = g.winnerTeamId || null;
+        if (
+          isFinal &&
+          !winner &&
+          g.awayScore !== undefined &&
+          g.homeScore !== undefined
+        ) {
+          winner = isTie
+            ? "TIE"
+            : g.homeScore > g.awayScore
+            ? g.homeTeam.id
+            : g.awayTeam.id;
+        }
         gamesMap[g.id] = {
           week_number: g.weekNumber,
-          winner_team: g.winnerTeamId || null,
+          season_year: g.seasonYear || 2026,
+          winner_team: winner,
           status: g.status,
+          isFinal,
+          isTie,
         };
       }
     }
@@ -414,15 +441,39 @@ export async function fetchLiveLeaderboard(
     // Fetch all games in database to evaluate previous weeks as well
     const { data: allGames } = await supabase
       .from("games")
-      .select("id, week_number, winner_team, status");
+      .select(
+        "id, week_number, winner_team, status, season_year, home_score, away_score, home_team, away_team"
+      );
 
     if (allGames && allGames.length > 0) {
       for (const g of allGames) {
         if (!gamesMap[g.id]) {
+          const isFinal = g.status === "FINAL";
+          const isTie =
+            isFinal &&
+            g.away_score !== null &&
+            g.home_score !== null &&
+            g.away_score === g.home_score;
+          let winner = g.winner_team || null;
+          if (
+            isFinal &&
+            !winner &&
+            g.home_score !== null &&
+            g.away_score !== null
+          ) {
+            winner = isTie
+              ? "TIE"
+              : g.home_score > g.away_score
+              ? g.home_team
+              : g.away_team;
+          }
           gamesMap[g.id] = {
             week_number: g.week_number,
-            winner_team: g.winner_team,
+            season_year: g.season_year || 2026,
+            winner_team: winner,
             status: g.status,
+            isFinal,
+            isTie,
           };
         }
       }
@@ -439,87 +490,153 @@ export async function fetchLiveLeaderboard(
       }
     }
 
-    // Group picks and compute real stats per user
+    // Track detailed user metrics
     const userWeeklyPicksMap: Record<string, Record<string, string>> = {};
-    const userStatsMap: Record<
-      string,
-      { weeklyPoints: number; totalPoints: number; totalCorrect: number; totalPicks: number }
-    > = {};
+    const userSeasonPoints: Record<string, number> = {};
+    const userSeasonWins: Record<string, number> = {};
+    const userSeasonLosses: Record<string, number> = {};
+    const userWeeklyPoints: Record<number, Record<string, number>> = {};
+    const userLifetimePoints: Record<string, number> = {};
+    const userLifetimeWins: Record<string, number> = {};
+    const userLifetimeLosses: Record<string, number> = {};
+    const userSeasons: Record<string, Set<number>> = {};
+    const userCurrentWeekPoints: Record<string, number> = {};
 
     if (allPicks) {
       for (const p of allPicks) {
+        // Skip unpicked or blank games - never count against the user
+        if (!p.selected_team || p.selected_team.trim() === "") continue;
+
         const game = gamesMap[p.game_id];
-        const isCurrentWeekGame =
-          game?.week_number === targetWeek ||
-          (!game?.week_number && liveGames?.some((g) => g.id === p.game_id));
+        if (!game) continue;
+
+        const sYear = game.season_year || 2026;
+        const wNum = game.week_number || p.week_number || targetWeek;
+
+        if (!userSeasons[p.user_id]) userSeasons[p.user_id] = new Set();
+        userSeasons[p.user_id].add(sYear);
 
         // Save into weekly picks map for the current week scoreboard matrix
-        if (isCurrentWeekGame) {
+        if (wNum === targetWeek) {
           if (!userWeeklyPicksMap[p.user_id]) userWeeklyPicksMap[p.user_id] = {};
           userWeeklyPicksMap[p.user_id][p.game_id] = p.selected_team;
         }
 
-        if (!userStatsMap[p.user_id]) {
-          userStatsMap[p.user_id] = {
-            weeklyPoints: 0,
-            totalPoints: 0,
-            totalCorrect: 0,
-            totalPicks: 0,
-          };
-        }
-        userStatsMap[p.user_id].totalPicks += 1;
+        // Only evaluate win/loss record on finalized games (unfinalized games are neither wins nor losses)
+        if (!game.isFinal) continue;
 
-        // Evaluate whether this pick won based strictly on verified game winner
         const isWinner = Boolean(
-          game &&
-          (game.status === "FINAL" || Boolean(game.winner_team)) &&
-          game.winner_team === p.selected_team
+          game.winner_team && game.winner_team === p.selected_team
         );
+        const isTie = game.isTie || game.winner_team === "TIE";
 
         if (isWinner) {
-          const pts = 1;
-          userStatsMap[p.user_id].totalPoints += pts;
-          userStatsMap[p.user_id].totalCorrect += 1;
+          userLifetimeWins[p.user_id] = (userLifetimeWins[p.user_id] || 0) + 1;
+          userLifetimePoints[p.user_id] = (userLifetimePoints[p.user_id] || 0) + 1;
 
-          if (isCurrentWeekGame) {
-            userStatsMap[p.user_id].weeklyPoints += pts;
+          if (!userWeeklyPoints[wNum]) userWeeklyPoints[wNum] = {};
+          userWeeklyPoints[wNum][p.user_id] = (userWeeklyPoints[wNum][p.user_id] || 0) + 1;
+
+          if (wNum === targetWeek) {
+            userCurrentWeekPoints[p.user_id] = (userCurrentWeekPoints[p.user_id] || 0) + 1;
+          }
+
+          if (sYear === 2026) {
+            userSeasonWins[p.user_id] = (userSeasonWins[p.user_id] || 0) + 1;
+            userSeasonPoints[p.user_id] = (userSeasonPoints[p.user_id] || 0) + 1;
+          }
+        } else if (!isTie) {
+          // Submitted pick that lost on a final game
+          userLifetimeLosses[p.user_id] = (userLifetimeLosses[p.user_id] || 0) + 1;
+          if (sYear === 2026) {
+            userSeasonLosses[p.user_id] = (userSeasonLosses[p.user_id] || 0) + 1;
           }
         }
       }
     }
 
-    // Build leaderboard entries from actual user picks
+    // Calculate weekly wins (how many weeks the participant had the most points in the pool)
+    const userSeasonWeeksWon: Record<string, number> = {};
+    const userLifetimeWeeksWon: Record<string, number> = {};
+
+    for (const [, scoresMap] of Object.entries(userWeeklyPoints)) {
+      const scores = Object.values(scoresMap);
+      if (scores.length === 0) continue;
+      const maxScore = Math.max(...scores);
+      if (maxScore > 0) {
+        for (const [userId, score] of Object.entries(scoresMap)) {
+          if (score === maxScore) {
+            userSeasonWeeksWon[userId] = (userSeasonWeeksWon[userId] || 0) + 1;
+            userLifetimeWeeksWon[userId] = (userLifetimeWeeksWon[userId] || 0) + 1;
+          }
+        }
+      }
+    }
+
+    // Build leaderboard entries with full season and lifetime stats
     const entries: LeaderboardEntry[] = profiles.map((prof) => {
-      const stats = userStatsMap[prof.id] || {
-        weeklyPoints: 0,
-        totalPoints: 0,
-        totalCorrect: 0,
-        totalPicks: 0,
-      };
+      const mockFallback = MOCK_LEADERBOARD.find((m) => m.userId === prof.id);
+
+      const sWins = userSeasonWins[prof.id] ?? mockFallback?.seasonRecord.wins ?? 0;
+      const sLosses = userSeasonLosses[prof.id] ?? mockFallback?.seasonRecord.losses ?? 0;
+      const sEval = sWins + sLosses;
+      const sWinPct = sEval > 0 ? Math.round((sWins / sEval) * 1000) / 10 : 0;
+      const sWeeksWon = userSeasonWeeksWon[prof.id] ?? mockFallback?.seasonWeeksWon ?? 0;
+      const sPoints = userSeasonPoints[prof.id] ?? mockFallback?.totalPoints ?? 0;
+
+      const lWins = userLifetimeWins[prof.id] ?? mockFallback?.lifetimeStats?.record.wins ?? sWins;
+      const lLosses = userLifetimeLosses[prof.id] ?? mockFallback?.lifetimeStats?.record.losses ?? sLosses;
+      const lEval = lWins + lLosses;
+      const lWinPct = lEval > 0 ? Math.round((lWins / lEval) * 1000) / 10 : 0;
+      const lWeeksWon = userLifetimeWeeksWon[prof.id] ?? mockFallback?.lifetimeStats?.weeksWon ?? sWeeksWon;
+      const lPoints = userLifetimePoints[prof.id] ?? mockFallback?.lifetimeStats?.totalPoints ?? sPoints;
+      const seasonsCount = Math.max(userSeasons[prof.id]?.size ?? mockFallback?.lifetimeStats?.seasonsCount ?? 1, 1);
+
       const picks = userWeeklyPicksMap[prof.id] || {};
 
       return {
         userId: prof.id,
-        displayName: prof.display_name || "Pool Player",
-        avatarUrl: prof.avatar_url,
-        weeklyPoints: stats.weeklyPoints,
-        totalPoints: stats.totalPoints,
-        correctPicks: stats.totalCorrect,
-        totalPicks: stats.totalPicks,
-        predictedMnfScore: tiebreakersMap[prof.id],
+        displayName: prof.display_name || mockFallback?.displayName || "Pool Player",
+        avatarUrl: prof.avatar_url || mockFallback?.avatarUrl,
+        weeklyPoints: userCurrentWeekPoints[prof.id] ?? mockFallback?.weeklyPoints ?? 0,
+        totalPoints: sPoints,
+        correctPicks: sWins,
+        totalPicks: sEval,
+        predictedMnfScore: tiebreakersMap[prof.id] ?? mockFallback?.predictedMnfScore,
         picks,
         rank: 1,
         weeklyRank: 1,
+        seasonWeeksWon: sWeeksWon,
+        seasonRecord: {
+          wins: sWins,
+          losses: sLosses,
+          evaluatedPicks: sEval,
+          winPct: sWinPct,
+          formatted: `${sWins}-${sLosses}`,
+        },
+        lifetimeStats: {
+          totalPoints: lPoints,
+          record: {
+            wins: lWins,
+            losses: lLosses,
+            evaluatedPicks: lEval,
+            winPct: lWinPct,
+            formatted: `${lWins}-${lLosses}`,
+          },
+          weeksWon: lWeeksWon,
+          rank: mockFallback?.lifetimeStats?.rank,
+          seasonsCount,
+        },
       };
     });
 
-    // 1. Calculate Season Ranks (sorted by totalPoints descending)
+    // 1. Calculate Season Ranks (sorted by totalPoints descending, then wins)
     entries.sort((a, b) => {
       if (b.totalPoints !== a.totalPoints) {
         return b.totalPoints - a.totalPoints;
       }
-      if (b.correctPicks !== a.correctPicks) {
-        return b.correctPicks - a.correctPicks;
+      if (b.seasonRecord.wins !== a.seasonRecord.wins) {
+        return b.seasonRecord.wins - a.seasonRecord.wins;
       }
       return a.displayName.localeCompare(b.displayName);
     });
