@@ -52,16 +52,40 @@ export function WeeklyScoreboard({
         isMnfKickoffPassed)
   );
 
-  // Sort entries for this week by weeklyPoints descending
+  // Sort entries for this week by weeklyPoints descending, then alphabetically
   const weeklySortedEntries = [...entries].sort((a, b) => {
     if (b.weeklyPoints !== a.weeklyPoints) {
       return b.weeklyPoints - a.weeklyPoints;
     }
-    return b.correctPicks - a.correctPicks;
+    return a.displayName.localeCompare(b.displayName);
+  });
+
+  // Calculate tie frequencies across the pool
+  const weeklyPointsCount = new Map<number, number>();
+  for (const entry of weeklySortedEntries) {
+    weeklyPointsCount.set(
+      entry.weeklyPoints,
+      (weeklyPointsCount.get(entry.weeklyPoints) || 0) + 1
+    );
+  }
+
+  // Assign competition ranks (1224 ranking) and tied status
+  const rankedEntries = weeklySortedEntries.map((entry) => {
+    const rank =
+      weeklySortedEntries.findIndex(
+        (other) => other.weeklyPoints === entry.weeklyPoints
+      ) + 1;
+    const isTied = (weeklyPointsCount.get(entry.weeklyPoints) || 0) > 1;
+    return {
+      ...entry,
+      rank,
+      isTied,
+      rankDisplay: isTied ? `T${rank}` : `#${rank}`,
+    };
   });
 
   // Filter participants based on search query
-  const filteredEntries = weeklySortedEntries.filter((entry) =>
+  const filteredEntries = rankedEntries.filter((entry) =>
     entry.displayName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -109,7 +133,7 @@ export function WeeklyScoreboard({
                   {/* Sticky Player Column */}
                   <th
                     scope="col"
-                    className="sticky left-0 z-20 bg-zinc-950 px-3.5 py-3 text-left w-36 sm:w-44 border-r border-zinc-800 shadow-sm"
+                    className="sticky left-0 z-30 bg-zinc-950 px-3.5 py-3 text-left w-36 sm:w-44 border-r border-zinc-800 shadow-sm"
                   >
                     Participant
                   </th>
@@ -154,9 +178,8 @@ export function WeeklyScoreboard({
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/60">
-                {filteredEntries.map((entry, idx) => {
+                {filteredEntries.map((entry) => {
                   const isCurrent = entry.userId === currentUserId;
-                  const rank = idx + 1;
 
                   return (
                     <tr
@@ -167,13 +190,16 @@ export function WeeklyScoreboard({
                     >
                       {/* Sticky Participant Column */}
                       <td
-                        className={`sticky left-0 z-10 px-3.5 py-3 text-left border-r border-zinc-800 font-medium ${
+                        className={`sticky left-0 z-20 px-3.5 py-3 text-left border-r border-zinc-800 font-medium ${
                           isCurrent ? "bg-zinc-900" : "bg-zinc-900"
                         }`}
                       >
                         <div className="flex items-center space-x-2 truncate">
-                          <span className="text-zinc-400 text-[10px] font-bold w-4 text-center shrink-0">
-                            #{rank}
+                          <span
+                            className="text-zinc-400 text-[10px] font-bold min-w-[1.5rem] text-center shrink-0"
+                            title={entry.isTied ? `Tied for #${entry.rank}` : `Rank #${entry.rank}`}
+                          >
+                            {entry.rankDisplay}
                           </span>
                           {entry.avatarUrl && (
                             <img
@@ -297,7 +323,7 @@ export function WeeklyScoreboard({
                             >
                               {/* Team Icon Box: Shows team logo when live/scheduled; covered by checkmark/X when final */}
                               <div
-                                className="relative w-5 h-5 rounded bg-zinc-950 p-0.5 flex items-center justify-center shrink-0 border border-zinc-800 overflow-hidden"
+                                className="relative w-5 h-5 rounded bg-zinc-950 p-0.5 flex items-center justify-center shrink-0 border border-zinc-800 overflow-hidden isolate"
                                 style={{ borderColor: teamColor ? `${teamColor}40` : undefined }}
                               >
                                 {/* Fallback abbreviation if logo fails or loads slowly */}
@@ -313,7 +339,7 @@ export function WeeklyScoreboard({
                                     src={teamLogo}
                                     alt={pickedTeam}
                                     loading="lazy"
-                                    className="relative z-0 w-full h-full object-contain"
+                                    className="w-full h-full object-contain"
                                     onError={(e) => {
                                       e.currentTarget.style.display = "none";
                                     }}
@@ -323,7 +349,7 @@ export function WeeklyScoreboard({
                                 {/* When game goes final, the icon is covered by the correct or incorrect symbol */}
                                 {isWinner && (
                                   <div
-                                    className="absolute inset-0 z-10 bg-emerald-600 flex items-center justify-center rounded shadow"
+                                    className="absolute inset-0 bg-emerald-600 flex items-center justify-center rounded shadow"
                                     title="Correct Pick"
                                   >
                                     <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
@@ -331,7 +357,7 @@ export function WeeklyScoreboard({
                                 )}
                                 {isLoser && (
                                   <div
-                                    className="absolute inset-0 z-10 bg-rose-600 flex items-center justify-center rounded shadow"
+                                    className="absolute inset-0 bg-rose-600 flex items-center justify-center rounded shadow"
                                     title="Incorrect Pick"
                                   >
                                     <X className="w-3.5 h-3.5 text-white stroke-[3]" />

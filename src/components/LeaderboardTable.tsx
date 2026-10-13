@@ -16,15 +16,43 @@ export function LeaderboardTable({
 }: LeaderboardTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Season standings are sorted by totalPoints descending
+  // Season standings are sorted by totalPoints descending, then correctPicks descending
   const seasonEntries = [...entries].sort((a, b) => {
     if (b.totalPoints !== a.totalPoints) {
       return b.totalPoints - a.totalPoints;
     }
-    return b.correctPicks - a.correctPicks;
+    if (b.correctPicks !== a.correctPicks) {
+      return b.correctPicks - a.correctPicks;
+    }
+    return a.displayName.localeCompare(b.displayName);
   });
 
-  const filteredEntries = seasonEntries.filter((e) =>
+  // Calculate tie frequencies across season standings
+  const seasonPointsKeyCount = new Map<string, number>();
+  for (const entry of seasonEntries) {
+    const key = `${entry.totalPoints}-${entry.correctPicks}`;
+    seasonPointsKeyCount.set(key, (seasonPointsKeyCount.get(key) || 0) + 1);
+  }
+
+  // Assign competition ranks (1224 ranking) and tied status
+  const rankedEntries = seasonEntries.map((entry) => {
+    const rank =
+      seasonEntries.findIndex(
+        (other) =>
+          other.totalPoints === entry.totalPoints &&
+          other.correctPicks === entry.correctPicks
+      ) + 1;
+    const key = `${entry.totalPoints}-${entry.correctPicks}`;
+    const isTied = (seasonPointsKeyCount.get(key) || 0) > 1;
+    return {
+      ...entry,
+      rank,
+      isTied,
+      rankDisplay: isTied ? `T${rank}` : `#${rank}`,
+    };
+  });
+
+  const filteredEntries = rankedEntries.filter((e) =>
     e.displayName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -65,9 +93,10 @@ export function LeaderboardTable({
 
         {/* MOBILE VIEW (< sm): Clean, touch-optimized card list */}
         <div className="sm:hidden divide-y divide-zinc-800/80">
-          {filteredEntries.map((entry, idx) => {
+          {filteredEntries.map((entry) => {
             const isCurrentUser = entry.userId === currentUserId;
-            const rank = idx + 1;
+            const rank = entry.rank;
+            const isTied = entry.isTied;
             const winPct =
               entry.totalPicks > 0
                 ? Math.round((entry.correctPicks / entry.totalPicks) * 100)
@@ -82,21 +111,21 @@ export function LeaderboardTable({
               >
                 {/* Left: Rank & User */}
                 <div className="flex items-center space-x-2.5 min-w-0">
-                  <div className="shrink-0 w-7 text-center font-bold text-xs">
+                  <div className="shrink-0 w-8 text-center font-bold text-xs">
                     {rank === 1 ? (
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                        1
+                      <span className="inline-flex items-center justify-center px-1.5 h-6 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[11px]">
+                        {isTied ? "T1" : "1"}
                       </span>
                     ) : rank === 2 ? (
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-300/20 text-slate-200 border border-slate-300/40">
-                        2
+                      <span className="inline-flex items-center justify-center px-1.5 h-6 rounded-full bg-slate-300/20 text-slate-200 border border-slate-300/40 text-[11px]">
+                        {isTied ? "T2" : "2"}
                       </span>
                     ) : rank === 3 ? (
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700/20 text-amber-600 border border-amber-700/40">
-                        3
+                      <span className="inline-flex items-center justify-center px-1.5 h-6 rounded-full bg-amber-700/20 text-amber-600 border border-amber-700/40 text-[11px]">
+                        {isTied ? "T3" : "3"}
                       </span>
                     ) : (
-                      <span className="text-zinc-500">#{rank}</span>
+                      <span className="text-zinc-500">{entry.rankDisplay}</span>
                     )}
                   </div>
 
@@ -164,9 +193,10 @@ export function LeaderboardTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/70">
-              {filteredEntries.map((entry, idx) => {
+              {filteredEntries.map((entry) => {
                 const isCurrentUser = entry.userId === currentUserId;
-                const rank = idx + 1;
+                const rank = entry.rank;
+                const isTied = entry.isTied;
                 const winPct =
                   entry.totalPicks > 0
                     ? Math.round((entry.correctPicks / entry.totalPicks) * 100)
@@ -184,19 +214,19 @@ export function LeaderboardTable({
                     {/* Rank */}
                     <td className="px-4 py-4 text-center">
                       {rank === 1 ? (
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 text-amber-400 font-bold border border-amber-500/40">
-                          1
+                        <span className="inline-flex items-center justify-center px-2 h-7 rounded-full bg-amber-500/20 text-amber-400 font-bold border border-amber-500/40 text-xs">
+                          {isTied ? "T1" : "1"}
                         </span>
                       ) : rank === 2 ? (
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-300/20 text-slate-200 font-bold border border-slate-300/40">
-                          2
+                        <span className="inline-flex items-center justify-center px-2 h-7 rounded-full bg-slate-300/20 text-slate-200 font-bold border border-slate-300/40 text-xs">
+                          {isTied ? "T2" : "2"}
                         </span>
                       ) : rank === 3 ? (
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-700/20 text-amber-600 font-bold border border-amber-700/40">
-                          3
+                        <span className="inline-flex items-center justify-center px-2 h-7 rounded-full bg-amber-700/20 text-amber-600 font-bold border border-amber-700/40 text-xs">
+                          {isTied ? "T3" : "3"}
                         </span>
                       ) : (
-                        <span className="text-zinc-400 font-semibold">{rank}</span>
+                        <span className="text-zinc-400 font-semibold">{isTied ? `T${rank}` : rank}</span>
                       )}
                     </td>
 
