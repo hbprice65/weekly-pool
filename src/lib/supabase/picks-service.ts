@@ -6,6 +6,7 @@ import {
   fetchNFLWeekSchedule,
   syncScheduleToSupabase,
   calculateFallbackWeek,
+  fetchCurrentActiveNFLWeek,
 } from "@/lib/api/nfl";
 
 export interface SavePicksResult {
@@ -119,28 +120,46 @@ export async function fetchWeekGames(
  */
 export async function fetchUserPicksFromSupabase(
   userId: string,
-  weekNumber?: number
+  weekNumber?: number,
+  games?: Game[]
 ): Promise<{ picks: Record<string, string>; mnfScore?: string }> {
   const targetWeek = weekNumber ?? calculateFallbackWeek();
   const supabase = createClient();
   if (!supabase || !userId) return { picks: {} };
 
   try {
-    // 1. Fetch picks for this user
-    const { data: picksData, error: picksError } = await supabase
+    // 1. Fetch picks for this user for the target week
+    let { data: picksData, error: picksError } = await supabase
       .from("picks")
-      .select("game_id, selected_team")
-      .eq("user_id", userId);
+      .select("game_id, selected_team, week_number")
+      .eq("user_id", userId)
+      .eq("week_number", targetWeek);
 
-    if (picksError) {
-      console.error("Error fetching picks from Supabase:", picksError.message);
-      return { picks: {} };
+    // Fallback for legacy rows where week_number was null: query by game IDs of this week's slate
+    if ((!picksData || picksData.length === 0) && games && games.length > 0) {
+      const slateGameIds = games.map((g) => g.id);
+      const { data: legacyPicks } = await supabase
+        .from("picks")
+        .select("game_id, selected_team, week_number")
+        .eq("user_id", userId)
+        .in("game_id", slateGameIds);
+
+      if (legacyPicks && legacyPicks.length > 0) {
+        picksData = legacyPicks;
+      }
+    }
+
+    if (picksError && !picksData) {
+      console.warn("Notice querying user picks:", picksError.message);
     }
 
     const picks: Record<string, string> = {};
     if (picksData) {
+      const allowedGameIds = games && games.length > 0 ? new Set(games.map((g) => g.id)) : null;
       for (const row of picksData) {
-        picks[row.game_id] = row.selected_team;
+        if (!allowedGameIds || allowedGameIds.has(row.game_id)) {
+          picks[row.game_id] = row.selected_team;
+        }
       }
     }
 
@@ -190,8 +209,8 @@ export async function saveUserPicksToSupabase(
   }
 
   try {
-    // Validate that target week is not in the future
-    const activeWeek = calculateFallbackWeek();
+    // Validate target week using live ESPN active week
+    const { currentWeek: activeWeek } = await fetchCurrentActiveNFLWeek();
     if (targetWeek > activeWeek) {
       return {
         success: false,
@@ -206,10 +225,11 @@ export async function saveUserPicksToSupabase(
     }
 
     const now = Date.now();
-    // Validate on the client that we only attempt to save picks for games that have not kicked off
+    // Validate on the client that we ONLY attempt to save picks for games belonging to THIS week that have not kicked off
     const pickEntriesToSave = pickEntries.filter(([gameId]) => {
       const g = games?.find((game) => game.id === gameId);
-      if (!g) return true;
+      // Strictly ignore picks from other weeks
+      if (!g) return false;
       const isPastKickoff = new Date(g.kickoffTime).getTime() <= now;
       const isLiveOrFinal = g.status === "IN_PROGRESS" || g.status === "FINAL";
       return !isPastKickoff && !isLiveOrFinal;
@@ -217,6 +237,11 @@ export async function saveUserPicksToSupabase(
 
     if (pickEntriesToSave.length === 0 && (!mnfScore || mnfScore === "")) {
       return { success: true, savedCount: 0, userId };
+    }
+
+    // Background sync this week's games to Supabase so games exist and have kickoff times
+    if (games && games.length > 0) {
+      syncScheduleToSupabase(games, targetWeek, 2026).catch(() => {});
     }
 
     // 1. Ensure profile exists in public.profiles with display name & avatar

@@ -317,32 +317,34 @@ export async function syncScheduleToSupabase(
   }
 
   try {
-    // 1. Upsert week record first
-    const startDate = games[0]?.kickoffTime || new Date().toISOString();
-    const endDate = games[games.length - 1]?.kickoffTime || new Date().toISOString();
-    const activeWeek = calculateFallbackWeek();
+    // 1. Optionally upsert week record if weeks table exists
+    try {
+      const startDate = games[0]?.kickoffTime || new Date().toISOString();
+      const endDate = games[games.length - 1]?.kickoffTime || new Date().toISOString();
+      const activeWeek = calculateFallbackWeek();
 
-    const { error: weekError } = await supabase.from("weeks").upsert(
-      {
-        week_number: weekNumber,
-        season_year: seasonYear,
-        title: `Week ${weekNumber}`,
-        start_date: startDate,
-        end_date: endDate,
-        lock_date: startDate,
-        is_current: weekNumber === activeWeek,
-        is_completed: games.every((g) => g.status === "FINAL"),
-      },
-      { onConflict: "week_number" }
-    );
-
-    if (weekError) {
-      console.warn("Notice: could not upsert week into Supabase:", weekError.message);
+      await supabase.from("weeks").upsert(
+        {
+          week_number: weekNumber,
+          season_year: seasonYear,
+          title: `Week ${weekNumber}`,
+          start_date: startDate,
+          end_date: endDate,
+          lock_date: startDate,
+          is_current: weekNumber === activeWeek,
+          is_completed: games.every((g) => g.status === "FINAL"),
+        },
+        { onConflict: "week_number" }
+      );
+    } catch {
+      // Ignored if weeks table does not exist in schema
     }
 
     // 2. Prepare game rows
     const gameRows = games.map((g) => ({
       id: g.id,
+      sport: g.sport || "football",
+      league: g.league || "nfl",
       week_number: weekNumber,
       season_year: seasonYear,
       away_team: g.awayTeam.id,

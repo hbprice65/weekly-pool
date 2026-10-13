@@ -248,14 +248,20 @@ export default function Home() {
           provider,
         });
 
-        const { picks, mnfScore } = await fetchUserPicksFromSupabase(user.id, weekNum);
+        const { picks, mnfScore } = await fetchUserPicksFromSupabase(user.id, weekNum, games);
         if (Object.keys(picks).length > 0) {
           setUserPicks(picks);
         } else {
           const local = localStorage.getItem(`nfl_picks_${user.id}_week_${weekNum}`);
           if (local) {
             try {
-              setUserPicks(JSON.parse(local));
+              const parsed = JSON.parse(local);
+              const allowedIds = new Set(games.map((g) => g.id));
+              const filtered: Record<string, string> = {};
+              for (const [gid, team] of Object.entries(parsed)) {
+                if (allowedIds.has(gid)) filtered[gid] = team as string;
+              }
+              setUserPicks(filtered);
             } catch {
               setUserPicks({});
             }
@@ -275,7 +281,13 @@ export default function Home() {
         const saved = localStorage.getItem(`nfl_weekly_picks_week_${weekNum}`);
         if (saved) {
           try {
-            setUserPicks(JSON.parse(saved));
+            const parsed = JSON.parse(saved);
+            const allowedIds = new Set(games.map((g) => g.id));
+            const filtered: Record<string, string> = {};
+            for (const [gid, team] of Object.entries(parsed)) {
+              if (allowedIds.has(gid)) filtered[gid] = team as string;
+            }
+            setUserPicks(filtered);
           } catch {
             setUserPicks({});
           }
@@ -352,18 +364,27 @@ export default function Home() {
     setIsSaving(true);
     setSaveStatus(null);
 
+    // Strictly isolate picks for games belonging to this specific week's slate
+    const slateGameIds = new Set(weekGames.map((g) => g.id));
+    const currentSlatePicks: Record<string, string> = {};
+    for (const [gid, team] of Object.entries(userPicks)) {
+      if (slateGameIds.has(gid)) {
+        currentSlatePicks[gid] = team;
+      }
+    }
+
     // Save to browser cache for resilience
     const storageKey = currentUser
       ? `nfl_picks_${currentUser.id}_week_${selectedWeek}`
       : `nfl_weekly_picks_week_${selectedWeek}`;
-    localStorage.setItem(storageKey, JSON.stringify(userPicks));
+    localStorage.setItem(storageKey, JSON.stringify(currentSlatePicks));
     localStorage.setItem(`nfl_weekly_mnf_week_${selectedWeek}`, mnfPrediction);
 
     // If user is authenticated with Supabase, persist to database
     if (currentUser) {
       const res = await saveUserPicksToSupabase(
         currentUser.id,
-        userPicks,
+        currentSlatePicks,
         mnfPrediction,
         selectedWeek,
         weekGames
@@ -408,7 +429,8 @@ export default function Home() {
   };
 
   const totalGames = weekGames.length;
-  const pickedCount = Object.keys(userPicks).length;
+  // Strictly count picks made on the games in the current active slate
+  const pickedCount = weekGames.filter((g) => Boolean(userPicks[g.id])).length;
   const allPicksMade = totalGames > 0 && pickedCount === totalGames;
   const progressPercent =
     totalGames > 0 ? Math.round((pickedCount / totalGames) * 100) : 0;
