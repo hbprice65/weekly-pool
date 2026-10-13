@@ -51,6 +51,15 @@ export function WeeklyScoreboard({
         mnfGame.status === "FINAL" ||
         isMnfKickoffPassed)
   );
+  const isMnfFinal = Boolean(
+    mnfGame &&
+      mnfGame.status === "FINAL" &&
+      mnfGame.awayScore !== undefined &&
+      mnfGame.homeScore !== undefined
+  );
+  const actualMnfScore = isMnfFinal && mnfGame
+    ? (mnfGame.awayScore ?? 0) + (mnfGame.homeScore ?? 0)
+    : null;
 
   // Sort entries for this week by weeklyPoints descending, then alphabetically
   const weeklySortedEntries = [...entries].sort((a, b) => {
@@ -174,6 +183,11 @@ export function WeeklyScoreboard({
                         <Lock className="w-3 h-3 text-purple-400 shrink-0" />
                       )}
                     </div>
+                    {isMnfFinal && actualMnfScore !== null && (
+                      <div className="text-[9px] text-zinc-400 font-mono mt-0.5 font-normal">
+                        Total {actualMnfScore}
+                      </div>
+                    )}
                   </th>
                 </tr>
               </thead>
@@ -378,6 +392,11 @@ export function WeeklyScoreboard({
                           isMnfStarted ? (
                             <span className="text-purple-300 font-bold">
                               {entry.predictedMnfScore}
+                              {entry.tiebreakerDiff !== undefined && (
+                                <span className="text-[10px] text-zinc-400 font-mono font-normal ml-1">
+                                  (&plusmn;{entry.tiebreakerDiff})
+                                </span>
+                              )}
                             </span>
                           ) : isCurrent ? (
                             <div className="inline-flex items-center justify-center space-x-1 text-purple-300 font-bold">

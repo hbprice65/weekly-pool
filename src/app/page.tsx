@@ -14,6 +14,7 @@ import {
   fetchUserPicksFromSupabase,
   saveUserPicksToSupabase,
   fetchLiveLeaderboard,
+  fetchSeasonStandings,
   fetchWeekGames,
 } from "@/lib/supabase/picks-service";
 import { fetchCurrentActiveNFLWeek, calculateFallbackWeek } from "@/lib/api/nfl";
@@ -31,8 +32,8 @@ import {
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<NavTab>("picks");
-  const [selectedWeek, setSelectedWeek] = useState<number>(1);
-  const [currentActiveWeek, setCurrentActiveWeek] = useState<number>(1);
+  const [selectedWeek, setSelectedWeek] = useState<number>(MOCK_WEEK.weekNumber);
+  const [currentActiveWeek, setCurrentActiveWeek] = useState<number>(MOCK_WEEK.weekNumber);
 
   const [userPicks, setUserPicks] = useState<Record<string, string>>({});
   const [mnfPrediction, setMnfPrediction] = useState<string>("45");
@@ -53,7 +54,8 @@ export default function Home() {
     provider?: string;
   } | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
-  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
+  const [standingsEntries, setStandingsEntries] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
+  const [scoreboardEntries, setScoreboardEntries] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
   const [weekGames, setWeekGames] = useState<Game[]>(MOCK_WEEK.games);
 
   // 1. Listen to Supabase Auth state changes (Google OAuth callbacks, logout, session refresh)
@@ -151,19 +153,23 @@ export default function Home() {
       if (!isMounted) return;
       const fallback = calculateFallbackWeek();
       setCurrentActiveWeek(fallback);
-      setSelectedWeek(() => {
-        if (typeof window !== "undefined") {
-          const params = new URLSearchParams(window.location.search);
-          const weekParam = params.get("week");
-          if (weekParam) {
-            const parsed = parseInt(weekParam, 10);
-            if (!isNaN(parsed) && parsed >= 1 && parsed <= 22) {
-              return parsed;
-            }
+
+      let hasUrlParam = false;
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const weekParam = params.get("week");
+        if (weekParam) {
+          const parsed = parseInt(weekParam, 10);
+          if (!isNaN(parsed) && parsed >= 1 && parsed <= 22) {
+            hasUrlParam = true;
+            setSelectedWeek(parsed);
           }
         }
-        return fallback;
-      });
+      }
+
+      if (!hasUrlParam) {
+        setSelectedWeek(fallback);
+      }
     });
 
     fetchCurrentActiveNFLWeek().then(({ currentWeek }) => {
@@ -190,7 +196,19 @@ export default function Home() {
     }
   };
 
-  // Load schedule, live scores, user session, and live leaderboard for selected week
+  // Load season-long standings across the whole season (never tied to week selection)
+  const loadSeasonStandings = useCallback(async () => {
+    try {
+      const seasonBoard = await fetchSeasonStandings();
+      if (seasonBoard && seasonBoard.length > 0) {
+        setStandingsEntries(seasonBoard);
+      }
+    } catch (err) {
+      console.warn("Could not load season standings:", err);
+    }
+  }, []);
+
+  // Load schedule, live scores, user session, and weekly scoreboard for selected week
   const loadWeekData = useCallback(
     async (weekNum: number = selectedWeek, forceFresh: boolean = false) => {
       if (forceFresh) setIsRefreshing(true);
@@ -201,10 +219,10 @@ export default function Home() {
         setWeekGames(games);
       }
 
-      // 2. Fetch live pool leaderboard with winner outcomes
-      const liveBoard = await fetchLiveLeaderboard(weekNum, games);
-      if (liveBoard && liveBoard.length > 0) {
-        setLeaderboardEntries(liveBoard);
+      // 2. Fetch weekly scoreboard entries for this specific week (does NOT overwrite season standings)
+      const weeklyBoard = await fetchLiveLeaderboard(weekNum, games);
+      if (weeklyBoard && weeklyBoard.length > 0) {
+        setScoreboardEntries(weeklyBoard);
       }
 
       // 3. Fetch authenticated user & saved picks for this specific week
@@ -286,6 +304,12 @@ export default function Home() {
 
   useEffect(() => {
     queueMicrotask(() => {
+      loadSeasonStandings();
+    });
+  }, [loadSeasonStandings]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
       loadWeekData(selectedWeek, false);
     });
   }, [loadWeekData, selectedWeek]);
@@ -302,6 +326,7 @@ export default function Home() {
 
   const handleRefresh = () => {
     loadWeekData(selectedWeek, true);
+    loadSeasonStandings();
   };
 
   const isFutureWeek = selectedWeek > currentActiveWeek;
@@ -351,8 +376,9 @@ export default function Home() {
         });
         const updatedBoard = await fetchLiveLeaderboard(selectedWeek, weekGames);
         if (updatedBoard && updatedBoard.length > 0) {
-          setLeaderboardEntries(updatedBoard);
+          setScoreboardEntries(updatedBoard);
         }
+        loadSeasonStandings();
       } else {
         setSaveStatus({
           type: "error",
@@ -388,7 +414,7 @@ export default function Home() {
     totalGames > 0 ? Math.round((pickedCount / totalGames) * 100) : 0;
 
   const myEntry = currentUser
-    ? leaderboardEntries.find((e) => e.userId === currentUser.id)
+    ? standingsEntries.find((e) => e.userId === currentUser.id)
     : null;
   const myRank = myEntry ? myEntry.rank : (currentUser ? 1 : MOCK_USER.seasonRank);
   const myPoints = myEntry ? myEntry.totalPoints : (currentUser ? 0 : MOCK_USER.totalPoints);
@@ -609,7 +635,7 @@ export default function Home() {
         {activeTab === "scoreboard" && (
           <WeeklyScoreboard
             games={weekGames}
-            entries={leaderboardEntries}
+            entries={scoreboardEntries}
             currentUserId={currentUser?.id}
             currentUserPicks={userPicks}
           />
@@ -618,7 +644,7 @@ export default function Home() {
         {/* Tab 3: Dedicated Season Leaderboard */}
         {activeTab === "leaderboard" && (
           <LeaderboardTable
-            entries={leaderboardEntries}
+            entries={standingsEntries}
             currentUserId={currentUser?.id}
             onNavigateToScoreboard={() => handleTabChange("scoreboard")}
           />

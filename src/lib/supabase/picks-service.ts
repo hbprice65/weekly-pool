@@ -388,11 +388,47 @@ export async function fetchLiveLeaderboard(
       console.warn("Notice: could not fetch picks from Supabase:", picksErr.message);
     }
 
-    // 3. Fetch tiebreakers for the target week
+    // 3. Fetch tiebreakers across all weeks
     const { data: allTiebreakers } = await supabase
       .from("tiebreakers")
-      .select("user_id, predicted_score, predicted_mnf_score, week_number")
-      .eq("week_number", targetWeek);
+      .select("user_id, predicted_score, predicted_mnf_score, week_number");
+
+    // Determine game broadcast window for clutch calculations
+    function getGameWindow(
+      kickoffTime?: string,
+      isMondayNight?: boolean
+    ): "EARLY" | "SNF" | "MNF" {
+      if (isMondayNight) return "MNF";
+      if (!kickoffTime) return "EARLY";
+
+      try {
+        const date = new Date(kickoffTime);
+        if (isNaN(date.getTime())) return "EARLY";
+
+        const formatter = new Intl.DateTimeFormat("en-US", {
+          weekday: "short",
+          hour: "numeric",
+          hour12: false,
+          timeZone: "America/New_York",
+        });
+        const parts = formatter.formatToParts(date);
+        const weekday = parts.find((p) => p.type === "weekday")?.value;
+        const hour = parseInt(
+          parts.find((p) => p.type === "hour")?.value || "0",
+          10
+        );
+
+        if (weekday === "Mon") {
+          return "MNF";
+        }
+        if (weekday === "Sun" && hour >= 19) {
+          return "SNF";
+        }
+        return "EARLY";
+      } catch {
+        return "EARLY";
+      }
+    }
 
     // 4. Build comprehensive games map to know week_number, winner, and status for all games
     interface GameEvaluation {
@@ -402,49 +438,108 @@ export async function fetchLiveLeaderboard(
       status: string;
       isFinal: boolean;
       isTie: boolean;
+      kickoff_time?: string;
+      is_monday_night?: boolean;
+      home_score?: number | null;
+      away_score?: number | null;
     }
     const gamesMap: Record<string, GameEvaluation> = {};
 
-    // Populate from liveGames first (authoritative for current week)
-    if (liveGames && liveGames.length > 0) {
-      for (const g of liveGames) {
-        const isFinal = g.status === "FINAL";
-        const isTie =
-          isFinal &&
-          g.awayScore !== undefined &&
-          g.homeScore !== undefined &&
-          g.awayScore === g.homeScore;
-        let winner = g.winnerTeamId || null;
-        if (
-          isFinal &&
-          !winner &&
-          g.awayScore !== undefined &&
-          g.homeScore !== undefined
-        ) {
-          winner = isTie
-            ? "TIE"
-            : g.homeScore > g.awayScore
-            ? g.homeTeam.id
-            : g.awayTeam.id;
-        }
-        gamesMap[g.id] = {
-          week_number: g.weekNumber,
-          season_year: g.seasonYear || 2026,
-          winner_team: winner,
-          status: g.status,
-          isFinal,
-          isTie,
-        };
+    const registerGameToMap = (g: Game) => {
+      const isFinal = g.status === "FINAL";
+      const isTie =
+        isFinal &&
+        g.awayScore !== undefined &&
+        g.homeScore !== undefined &&
+        g.awayScore === g.homeScore;
+      let winner = g.winnerTeamId || null;
+      if (
+        isFinal &&
+        !winner &&
+        g.awayScore !== undefined &&
+        g.homeScore !== undefined
+      ) {
+        winner = isTie
+          ? "TIE"
+          : g.homeScore > g.awayScore
+          ? g.homeTeam.id
+          : g.awayTeam.id;
       }
-    }
+      gamesMap[g.id] = {
+        week_number: g.weekNumber,
+        season_year: g.seasonYear || 2026,
+        winner_team: winner,
+        status: g.status,
+        isFinal,
+        isTie,
+        kickoff_time: g.kickoffTime,
+        is_monday_night: Boolean(g.isMondayNight),
+        home_score: g.homeScore,
+        away_score: g.awayScore,
+      };
+    };
 
-    // Fetch all games in database to evaluate previous weeks as well
+    // Fetch all games in database
     const { data: allGames } = await supabase
       .from("games")
       .select(
-        "id, week_number, winner_team, status, season_year, home_score, away_score, home_team, away_team"
+        "id, week_number, winner_team, status, season_year, home_score, away_score, home_team, away_team, kickoff_time, is_monday_night"
       );
 
+    // Identify all weeks that need game scores to evaluate picks accurately
+    const weeksToFetch = new Set<number>();
+    if (targetWeek && !isNaN(targetWeek)) weeksToFetch.add(targetWeek);
+    const fallbackW = calculateFallbackWeek();
+    if (fallbackW && !isNaN(fallbackW)) weeksToFetch.add(fallbackW);
+
+    const dbGameWeekMap = new Map<string, number>();
+    if (allGames) {
+      for (const g of allGames) {
+        if (g.id && g.week_number) dbGameWeekMap.set(g.id, g.week_number);
+      }
+    }
+
+    if (allPicks) {
+      for (const p of allPicks) {
+        const w = Number(p.week_number);
+        if (!isNaN(w) && w > 0) {
+          weeksToFetch.add(w);
+        } else if (p.game_id && dbGameWeekMap.has(p.game_id)) {
+          weeksToFetch.add(dbGameWeekMap.get(p.game_id)!);
+        }
+      }
+    }
+
+    // Fetch official live/final schedules for all relevant weeks from ESPN in parallel (with in-memory cache)
+    await Promise.all(
+      Array.from(weeksToFetch).map(async (w) => {
+        if (w === targetWeek && liveGames && liveGames.length > 0) {
+          for (const g of liveGames) {
+            registerGameToMap(g);
+          }
+          return;
+        }
+        try {
+          const liveData = await fetchNFLWeekSchedule(w, 2026);
+          if (liveData?.week?.games) {
+            for (const g of liveData.week.games) {
+              registerGameToMap(g);
+            }
+          }
+        } catch (err) {
+          console.warn(`Could not fetch live schedule for week ${w}:`, err);
+        }
+      })
+    );
+
+    // If liveGames was provided for targetWeek, ensure it is registered (authoritative for targetWeek)
+    if (liveGames && liveGames.length > 0) {
+      for (const g of liveGames) {
+        registerGameToMap(g);
+      }
+    }
+
+    // Fallback: Populate any remaining games from Supabase games table
     if (allGames && allGames.length > 0) {
       for (const g of allGames) {
         if (!gamesMap[g.id]) {
@@ -474,18 +569,29 @@ export async function fetchLiveLeaderboard(
             status: g.status,
             isFinal,
             isTie,
+            kickoff_time: g.kickoff_time,
+            is_monday_night: Boolean(g.is_monday_night),
+            home_score: g.home_score,
+            away_score: g.away_score,
           };
         }
       }
     }
 
+    const tiebreakersByWeek: Record<number, Record<string, number>> = {};
     const tiebreakersMap: Record<string, number> = {};
     if (allTiebreakers) {
       for (const t of allTiebreakers) {
         const record = t as Record<string, unknown>;
         const val = record.predicted_score ?? record.predicted_mnf_score;
-        if (val !== undefined && val !== null) {
-          tiebreakersMap[t.user_id] = Number(val);
+        const w = Number(record.week_number);
+        const uid = String(record.user_id);
+        if (val !== undefined && val !== null && !isNaN(w)) {
+          if (!tiebreakersByWeek[w]) tiebreakersByWeek[w] = {};
+          tiebreakersByWeek[w][uid] = Number(val);
+          if (w === targetWeek) {
+            tiebreakersMap[uid] = Number(val);
+          }
         }
       }
     }
@@ -501,6 +607,23 @@ export async function fetchLiveLeaderboard(
     const userLifetimeLosses: Record<string, number> = {};
     const userSeasons: Record<string, Set<number>> = {};
     const userCurrentWeekPoints: Record<string, number> = {};
+    const weekSeasonMap: Record<number, number> = {};
+
+    // Tracking for Clutch calculations:
+    // Points earned in EARLY final games per season and week
+    const userEarlyPointsByWeek: Record<string, Record<number, Record<string, number>>> = {};
+    // Points earned in EARLY + SNF final games per season and week
+    const userPreMnfPointsByWeek: Record<string, Record<number, Record<string, number>>> = {};
+
+    interface PrimetimePick {
+      userId: string;
+      seasonYear: number;
+      weekNumber: number;
+      isWinner: boolean;
+      isTie: boolean;
+    }
+    const snfPicksList: PrimetimePick[] = [];
+    const mnfPicksList: PrimetimePick[] = [];
 
     if (allPicks) {
       for (const p of allPicks) {
@@ -512,6 +635,7 @@ export async function fetchLiveLeaderboard(
 
         const sYear = game.season_year || 2026;
         const wNum = game.week_number || p.week_number || targetWeek;
+        weekSeasonMap[wNum] = sYear;
 
         if (!userSeasons[p.user_id]) userSeasons[p.user_id] = new Set();
         userSeasons[p.user_id].add(sYear);
@@ -552,22 +676,257 @@ export async function fetchLiveLeaderboard(
             userSeasonLosses[p.user_id] = (userSeasonLosses[p.user_id] || 0) + 1;
           }
         }
+
+        // Track points by time window for clutch game evaluation
+        const windowType = getGameWindow(game.kickoff_time, game.is_monday_night);
+        const sYearKey = String(sYear);
+
+        if (windowType === "EARLY") {
+          if (isWinner) {
+            if (!userEarlyPointsByWeek[sYearKey]) userEarlyPointsByWeek[sYearKey] = {};
+            if (!userEarlyPointsByWeek[sYearKey][wNum]) userEarlyPointsByWeek[sYearKey][wNum] = {};
+            userEarlyPointsByWeek[sYearKey][wNum][p.user_id] =
+              (userEarlyPointsByWeek[sYearKey][wNum][p.user_id] || 0) + 1;
+
+            if (!userPreMnfPointsByWeek[sYearKey]) userPreMnfPointsByWeek[sYearKey] = {};
+            if (!userPreMnfPointsByWeek[sYearKey][wNum]) userPreMnfPointsByWeek[sYearKey][wNum] = {};
+            userPreMnfPointsByWeek[sYearKey][wNum][p.user_id] =
+              (userPreMnfPointsByWeek[sYearKey][wNum][p.user_id] || 0) + 1;
+          }
+        } else if (windowType === "SNF") {
+          if (isWinner) {
+            if (!userPreMnfPointsByWeek[sYearKey]) userPreMnfPointsByWeek[sYearKey] = {};
+            if (!userPreMnfPointsByWeek[sYearKey][wNum]) userPreMnfPointsByWeek[sYearKey][wNum] = {};
+            userPreMnfPointsByWeek[sYearKey][wNum][p.user_id] =
+              (userPreMnfPointsByWeek[sYearKey][wNum][p.user_id] || 0) + 1;
+          }
+          snfPicksList.push({
+            userId: p.user_id,
+            seasonYear: sYear,
+            weekNumber: wNum,
+            isWinner,
+            isTie,
+          });
+        } else if (windowType === "MNF") {
+          mnfPicksList.push({
+            userId: p.user_id,
+            seasonYear: sYear,
+            weekNumber: wNum,
+            isWinner,
+            isTie,
+          });
+        }
       }
     }
 
-    // Calculate weekly wins (how many weeks the participant had the most points in the pool)
+    // Calculate weekly wins and evaluate tiebreakers when MNF goes final:
+    // If there is a tie after the MNF game goes final, the tiebreaker goes to the person
+    // who got closest to the MNF total score. They get an extra point to break the tie
+    // and name a winner for the week.
+    // If still tied after the tiebreaker, all tied first place users win that week.
+    // Tiebreaker outcomes count on the overall picks record, and are tracked in tiebreakRecord.
+    const userSeasonTbWins: Record<string, number> = {};
+    const userSeasonTbLosses: Record<string, number> = {};
+    const userLifetimeTbWins: Record<string, number> = {};
+    const userLifetimeTbLosses: Record<string, number> = {};
+
     const userSeasonWeeksWon: Record<string, number> = {};
     const userLifetimeWeeksWon: Record<string, number> = {};
+    const userTargetWeekDiff: Record<string, number> = {};
 
-    for (const [, scoresMap] of Object.entries(userWeeklyPoints)) {
+    // Group games by week number
+    const gamesByWeek: Record<number, GameEvaluation[]> = {};
+    for (const g of Object.values(gamesMap)) {
+      if (!gamesByWeek[g.week_number]) gamesByWeek[g.week_number] = [];
+      gamesByWeek[g.week_number].push(g);
+    }
+
+    for (const [wStr, scoresMap] of Object.entries(userWeeklyPoints)) {
+      const wNum = Number(wStr);
+      const sYear = weekSeasonMap[wNum] || 2026;
       const scores = Object.values(scoresMap);
       if (scores.length === 0) continue;
+
       const maxScore = Math.max(...scores);
-      if (maxScore > 0) {
-        for (const [userId, score] of Object.entries(scoresMap)) {
-          if (score === maxScore) {
-            userSeasonWeeksWon[userId] = (userSeasonWeeksWon[userId] || 0) + 1;
-            userLifetimeWeeksWon[userId] = (userLifetimeWeeksWon[userId] || 0) + 1;
+      if (maxScore <= 0) continue;
+
+      const tiedForFirst = Object.entries(scoresMap)
+        .filter(([, score]) => score === maxScore)
+        .map(([userId]) => userId);
+
+      const weekGames = gamesByWeek[wNum] || [];
+      const mnfGames = weekGames.filter(
+        (g) =>
+          g.is_monday_night ||
+          getGameWindow(g.kickoff_time, g.is_monday_night) === "MNF"
+      );
+
+      // MNF game is final when all MNF games in that week (or all games if none were MNF) are final
+      const isMnfFinal =
+        mnfGames.length > 0
+          ? mnfGames.every((g) => g.isFinal)
+          : weekGames.length > 0 && weekGames.every((g) => g.isFinal);
+
+      if (tiedForFirst.length > 1 && isMnfFinal) {
+        // Tiebreaker goes into effect!
+        const tbGame =
+          mnfGames.length > 0
+            ? mnfGames[mnfGames.length - 1]
+            : weekGames[weekGames.length - 1];
+
+        const actualMnfTotal =
+          tbGame &&
+          tbGame.home_score !== null &&
+          tbGame.home_score !== undefined &&
+          tbGame.away_score !== null &&
+          tbGame.away_score !== undefined
+            ? tbGame.home_score + tbGame.away_score
+            : null;
+
+        const userDiffs: Record<string, number> = {};
+        for (const uid of tiedForFirst) {
+          const predicted = tiebreakersByWeek[wNum]?.[uid];
+          if (
+            actualMnfTotal !== null &&
+            predicted !== undefined &&
+            predicted !== null
+          ) {
+            userDiffs[uid] = Math.abs(predicted - actualMnfTotal);
+          } else {
+            userDiffs[uid] = Infinity;
+          }
+        }
+
+        const validDiffs = Object.values(userDiffs).filter((d) => d !== Infinity);
+        const minDiff = validDiffs.length > 0 ? Math.min(...validDiffs) : Infinity;
+
+        if (minDiff !== Infinity) {
+          const tbWinners = tiedForFirst.filter((uid) => userDiffs[uid] === minDiff);
+          const tbLosers = tiedForFirst.filter((uid) => userDiffs[uid] > minDiff);
+
+          // Winner(s) get an extra point to break the tie and win the week
+          for (const winnerId of tbWinners) {
+            scoresMap[winnerId] = (scoresMap[winnerId] || 0) + 1;
+            if (wNum === targetWeek) {
+              userCurrentWeekPoints[winnerId] =
+                (userCurrentWeekPoints[winnerId] || 0) + 1;
+            }
+            if (sYear === 2026) {
+              userSeasonPoints[winnerId] = (userSeasonPoints[winnerId] || 0) + 1;
+              userSeasonWeeksWon[winnerId] =
+                (userSeasonWeeksWon[winnerId] || 0) + 1;
+              userSeasonTbWins[winnerId] = (userSeasonTbWins[winnerId] || 0) + 1;
+            }
+            userLifetimePoints[winnerId] =
+              (userLifetimePoints[winnerId] || 0) + 1;
+            userLifetimeWeeksWon[winnerId] =
+              (userLifetimeWeeksWon[winnerId] || 0) + 1;
+            userLifetimeTbWins[winnerId] =
+              (userLifetimeTbWins[winnerId] || 0) + 1;
+          }
+
+          // Losers in tiebreak scenario
+          for (const loserId of tbLosers) {
+            if (sYear === 2026) {
+              userSeasonTbLosses[loserId] = (userSeasonTbLosses[loserId] || 0) + 1;
+            }
+            userLifetimeTbLosses[loserId] = (userLifetimeTbLosses[loserId] || 0) + 1;
+          }
+        } else {
+          // If no tied participant submitted a tiebreaker, all tied first place users win that week
+          for (const uid of tiedForFirst) {
+            if (sYear === 2026) {
+              userSeasonWeeksWon[uid] = (userSeasonWeeksWon[uid] || 0) + 1;
+            }
+            userLifetimeWeeksWon[uid] = (userLifetimeWeeksWon[uid] || 0) + 1;
+          }
+        }
+      } else {
+        // Sole leader, or MNF not yet final
+        for (const uid of tiedForFirst) {
+          if (sYear === 2026) {
+            userSeasonWeeksWon[uid] = (userSeasonWeeksWon[uid] || 0) + 1;
+          }
+          userLifetimeWeeksWon[uid] = (userLifetimeWeeksWon[uid] || 0) + 1;
+        }
+      }
+    }
+
+    // Record tiebreaker diff for targetWeek if target MNF is final
+    const targetWeekGames = gamesByWeek[targetWeek] || [];
+    const targetMnfGames = targetWeekGames.filter(
+      (g) =>
+        g.is_monday_night ||
+        getGameWindow(g.kickoff_time, g.is_monday_night) === "MNF"
+    );
+    const targetTbGame =
+      targetMnfGames.length > 0
+        ? targetMnfGames[targetMnfGames.length - 1]
+        : targetWeekGames[targetWeekGames.length - 1];
+    const targetActualMnfTotal =
+      targetTbGame &&
+      targetTbGame.isFinal &&
+      targetTbGame.home_score !== null &&
+      targetTbGame.home_score !== undefined &&
+      targetTbGame.away_score !== null &&
+      targetTbGame.away_score !== undefined
+        ? targetTbGame.home_score + targetTbGame.away_score
+        : null;
+
+    if (targetActualMnfTotal !== null) {
+      for (const [uid, pred] of Object.entries(tiebreakersMap)) {
+        if (pred !== undefined && pred !== null) {
+          userTargetWeekDiff[uid] = Math.abs(pred - targetActualMnfTotal);
+        }
+      }
+    }
+
+    // Calculate Clutch record:
+    // In SNF and MNF games when the participant was within 2 points of the weekly lead at kickoff
+    const userSeasonClutchWins: Record<string, number> = {};
+    const userSeasonClutchLosses: Record<string, number> = {};
+    const userLifetimeClutchWins: Record<string, number> = {};
+    const userLifetimeClutchLosses: Record<string, number> = {};
+
+    for (const pick of snfPicksList) {
+      const sKey = String(pick.seasonYear);
+      const earlyScores = Object.values(userEarlyPointsByWeek[sKey]?.[pick.weekNumber] || {});
+      const maxEarly = earlyScores.length > 0 ? Math.max(...earlyScores) : 0;
+      const userEarly = userEarlyPointsByWeek[sKey]?.[pick.weekNumber]?.[pick.userId] || 0;
+
+      // Within 2 points of the weekly lead prior to SNF kickoff
+      if (maxEarly - userEarly <= 2) {
+        if (pick.isWinner) {
+          userLifetimeClutchWins[pick.userId] = (userLifetimeClutchWins[pick.userId] || 0) + 1;
+          if (pick.seasonYear === 2026) {
+            userSeasonClutchWins[pick.userId] = (userSeasonClutchWins[pick.userId] || 0) + 1;
+          }
+        } else if (!pick.isTie) {
+          userLifetimeClutchLosses[pick.userId] = (userLifetimeClutchLosses[pick.userId] || 0) + 1;
+          if (pick.seasonYear === 2026) {
+            userSeasonClutchLosses[pick.userId] = (userSeasonClutchLosses[pick.userId] || 0) + 1;
+          }
+        }
+      }
+    }
+
+    for (const pick of mnfPicksList) {
+      const sKey = String(pick.seasonYear);
+      const preMnfScores = Object.values(userPreMnfPointsByWeek[sKey]?.[pick.weekNumber] || {});
+      const maxPreMnf = preMnfScores.length > 0 ? Math.max(...preMnfScores) : 0;
+      const userPreMnf = userPreMnfPointsByWeek[sKey]?.[pick.weekNumber]?.[pick.userId] || 0;
+
+      // Within 2 points of the weekly lead prior to MNF kickoff
+      if (maxPreMnf - userPreMnf <= 2) {
+        if (pick.isWinner) {
+          userLifetimeClutchWins[pick.userId] = (userLifetimeClutchWins[pick.userId] || 0) + 1;
+          if (pick.seasonYear === 2026) {
+            userSeasonClutchWins[pick.userId] = (userSeasonClutchWins[pick.userId] || 0) + 1;
+          }
+        } else if (!pick.isTie) {
+          userLifetimeClutchLosses[pick.userId] = (userLifetimeClutchLosses[pick.userId] || 0) + 1;
+          if (pick.seasonYear === 2026) {
+            userSeasonClutchLosses[pick.userId] = (userSeasonClutchLosses[pick.userId] || 0) + 1;
           }
         }
       }
@@ -577,20 +936,88 @@ export async function fetchLiveLeaderboard(
     const entries: LeaderboardEntry[] = profiles.map((prof) => {
       const mockFallback = MOCK_LEADERBOARD.find((m) => m.userId === prof.id);
 
-      const sWins = userSeasonWins[prof.id] ?? mockFallback?.seasonRecord.wins ?? 0;
-      const sLosses = userSeasonLosses[prof.id] ?? mockFallback?.seasonRecord.losses ?? 0;
+      const sWins = mockFallback
+        ? Math.max(userSeasonWins[prof.id] || 0, mockFallback.seasonRecord.wins)
+        : (userSeasonWins[prof.id] || 0);
+      const sLosses = mockFallback
+        ? (userSeasonLosses[prof.id] !== undefined
+            ? Math.max(userSeasonLosses[prof.id], mockFallback.seasonRecord.losses)
+            : mockFallback.seasonRecord.losses)
+        : (userSeasonLosses[prof.id] || 0);
       const sEval = sWins + sLosses;
       const sWinPct = sEval > 0 ? Math.round((sWins / sEval) * 1000) / 10 : 0;
-      const sWeeksWon = userSeasonWeeksWon[prof.id] ?? mockFallback?.seasonWeeksWon ?? 0;
-      const sPoints = userSeasonPoints[prof.id] ?? mockFallback?.totalPoints ?? 0;
+      const sWeeksWon = mockFallback
+        ? Math.max(userSeasonWeeksWon[prof.id] || 0, mockFallback.seasonWeeksWon)
+        : (userSeasonWeeksWon[prof.id] || 0);
+      const sPoints = mockFallback
+        ? Math.max(userSeasonPoints[prof.id] || 0, mockFallback.totalPoints)
+        : (userSeasonPoints[prof.id] || 0);
 
-      const lWins = userLifetimeWins[prof.id] ?? mockFallback?.lifetimeStats?.record.wins ?? sWins;
-      const lLosses = userLifetimeLosses[prof.id] ?? mockFallback?.lifetimeStats?.record.losses ?? sLosses;
+      const sClutchWins = mockFallback
+        ? Math.max(userSeasonClutchWins[prof.id] || 0, mockFallback.clutchRecord?.wins ?? 0)
+        : (userSeasonClutchWins[prof.id] || 0);
+      const sClutchLosses = mockFallback
+        ? (userSeasonClutchLosses[prof.id] !== undefined
+            ? Math.max(userSeasonClutchLosses[prof.id], mockFallback.clutchRecord?.losses ?? 0)
+            : (mockFallback.clutchRecord?.losses ?? 0))
+        : (userSeasonClutchLosses[prof.id] || 0);
+      const sClutchEval = sClutchWins + sClutchLosses;
+      const sClutchPct = sClutchEval > 0 ? Math.round((sClutchWins / sClutchEval) * 1000) / 10 : 0;
+      const sClutchFormatted = sClutchEval > 0 ? `${sClutchWins}-${sClutchLosses}` : "—";
+
+      const sTbWins = mockFallback
+        ? Math.max(userSeasonTbWins[prof.id] || 0, mockFallback.tiebreakRecord?.wins ?? 0)
+        : (userSeasonTbWins[prof.id] || 0);
+      const sTbLosses = mockFallback
+        ? (userSeasonTbLosses[prof.id] !== undefined
+            ? Math.max(userSeasonTbLosses[prof.id], mockFallback.tiebreakRecord?.losses ?? 0)
+            : (mockFallback.tiebreakRecord?.losses ?? 0))
+        : (userSeasonTbLosses[prof.id] || 0);
+      const sTbEval = sTbWins + sTbLosses;
+      const sTbPct = sTbEval > 0 ? Math.round((sTbWins / sTbEval) * 1000) / 10 : 0;
+      const sTbFormatted = sTbEval > 0 ? `${sTbWins}-${sTbLosses}` : "—";
+
+      const lWins = mockFallback?.lifetimeStats
+        ? Math.max(userLifetimeWins[prof.id] || 0, mockFallback.lifetimeStats.record.wins)
+        : (userLifetimeWins[prof.id] || sWins);
+      const lLosses = mockFallback?.lifetimeStats
+        ? (userLifetimeLosses[prof.id] !== undefined
+            ? Math.max(userLifetimeLosses[prof.id], mockFallback.lifetimeStats.record.losses)
+            : mockFallback.lifetimeStats.record.losses)
+        : (userLifetimeLosses[prof.id] || sLosses);
       const lEval = lWins + lLosses;
       const lWinPct = lEval > 0 ? Math.round((lWins / lEval) * 1000) / 10 : 0;
-      const lWeeksWon = userLifetimeWeeksWon[prof.id] ?? mockFallback?.lifetimeStats?.weeksWon ?? sWeeksWon;
-      const lPoints = userLifetimePoints[prof.id] ?? mockFallback?.lifetimeStats?.totalPoints ?? sPoints;
+      const lWeeksWon = mockFallback?.lifetimeStats
+        ? Math.max(userLifetimeWeeksWon[prof.id] || 0, mockFallback.lifetimeStats.weeksWon)
+        : (userLifetimeWeeksWon[prof.id] || sWeeksWon);
+      const lPoints = mockFallback?.lifetimeStats
+        ? Math.max(userLifetimePoints[prof.id] || 0, mockFallback.lifetimeStats.totalPoints)
+        : (userLifetimePoints[prof.id] || sPoints);
       const seasonsCount = Math.max(userSeasons[prof.id]?.size ?? mockFallback?.lifetimeStats?.seasonsCount ?? 1, 1);
+
+      const lClutchWins = mockFallback?.lifetimeStats?.clutchRecord
+        ? Math.max(userLifetimeClutchWins[prof.id] || 0, mockFallback.lifetimeStats.clutchRecord.wins)
+        : (userLifetimeClutchWins[prof.id] || sClutchWins);
+      const lClutchLosses = mockFallback?.lifetimeStats?.clutchRecord
+        ? (userLifetimeClutchLosses[prof.id] !== undefined
+            ? Math.max(userLifetimeClutchLosses[prof.id], mockFallback.lifetimeStats.clutchRecord.losses)
+            : mockFallback.lifetimeStats.clutchRecord.losses)
+        : (userLifetimeClutchLosses[prof.id] || sClutchLosses);
+      const lClutchEval = lClutchWins + lClutchLosses;
+      const lClutchPct = lClutchEval > 0 ? Math.round((lClutchWins / lClutchEval) * 1000) / 10 : 0;
+      const lClutchFormatted = lClutchEval > 0 ? `${lClutchWins}-${lClutchLosses}` : "—";
+
+      const lTbWins = mockFallback?.lifetimeStats?.tiebreakRecord
+        ? Math.max(userLifetimeTbWins[prof.id] || 0, mockFallback.lifetimeStats.tiebreakRecord.wins)
+        : (userLifetimeTbWins[prof.id] || sTbWins);
+      const lTbLosses = mockFallback?.lifetimeStats?.tiebreakRecord
+        ? (userLifetimeTbLosses[prof.id] !== undefined
+            ? Math.max(userLifetimeTbLosses[prof.id], mockFallback.lifetimeStats.tiebreakRecord.losses)
+            : mockFallback.lifetimeStats.tiebreakRecord.losses)
+        : (userLifetimeTbLosses[prof.id] || sTbLosses);
+      const lTbEval = lTbWins + lTbLosses;
+      const lTbPct = lTbEval > 0 ? Math.round((lTbWins / lTbEval) * 1000) / 10 : 0;
+      const lTbFormatted = lTbEval > 0 ? `${lTbWins}-${lTbLosses}` : "—";
 
       const picks = userWeeklyPicksMap[prof.id] || {};
 
@@ -603,6 +1030,7 @@ export async function fetchLiveLeaderboard(
         correctPicks: sWins,
         totalPicks: sEval,
         predictedMnfScore: tiebreakersMap[prof.id] ?? mockFallback?.predictedMnfScore,
+        tiebreakerDiff: userTargetWeekDiff[prof.id],
         picks,
         rank: 1,
         weeklyRank: 1,
@@ -614,6 +1042,20 @@ export async function fetchLiveLeaderboard(
           winPct: sWinPct,
           formatted: `${sWins}-${sLosses}`,
         },
+        clutchRecord: {
+          wins: sClutchWins,
+          losses: sClutchLosses,
+          evaluatedPicks: sClutchEval,
+          winPct: sClutchPct,
+          formatted: sClutchFormatted,
+        },
+        tiebreakRecord: {
+          wins: sTbWins,
+          losses: sTbLosses,
+          evaluatedPicks: sTbEval,
+          winPct: sTbPct,
+          formatted: sTbFormatted,
+        },
         lifetimeStats: {
           totalPoints: lPoints,
           record: {
@@ -622,6 +1064,20 @@ export async function fetchLiveLeaderboard(
             evaluatedPicks: lEval,
             winPct: lWinPct,
             formatted: `${lWins}-${lLosses}`,
+          },
+          clutchRecord: {
+            wins: lClutchWins,
+            losses: lClutchLosses,
+            evaluatedPicks: lClutchEval,
+            winPct: lClutchPct,
+            formatted: lClutchFormatted,
+          },
+          tiebreakRecord: {
+            wins: lTbWins,
+            losses: lTbLosses,
+            evaluatedPicks: lTbEval,
+            winPct: lTbPct,
+            formatted: lTbFormatted,
           },
           weeksWon: lWeeksWon,
           rank: mockFallback?.lifetimeStats?.rank,
@@ -671,3 +1127,13 @@ export async function fetchLiveLeaderboard(
     return MOCK_LEADERBOARD;
   }
 }
+
+/**
+ * Fetch and compute season-long standings across the entire season.
+ * This represents season-long and lifetime stats and NEVER changes with week selection.
+ */
+export async function fetchSeasonStandings(): Promise<LeaderboardEntry[]> {
+  const activeWeek = calculateFallbackWeek();
+  return fetchLiveLeaderboard(activeWeek);
+}
+

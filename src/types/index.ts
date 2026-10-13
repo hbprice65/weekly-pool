@@ -259,6 +259,10 @@ export interface LifetimeStats {
   rank?: number;
   /** Number of seasons participated */
   seasonsCount: number;
+  /** Lifetime clutch record in SNF and MNF games when within 2 points of the weekly lead */
+  clutchRecord?: PickRecord;
+  /** Lifetime record in tiebreaker scenarios (tied for 1st place after MNF) */
+  tiebreakRecord?: PickRecord;
 }
 
 /**
@@ -294,6 +298,10 @@ export interface LeaderboardEntry {
   seasonWeeksWon: number;
   /** Overall picks record for current season (blank games not counted against) */
   seasonRecord: PickRecord;
+  /** Clutch record in SNF and MNF games when within 2 points of the weekly lead */
+  clutchRecord: PickRecord;
+  /** Record in tiebreaker scenarios (tied for 1st place after MNF) */
+  tiebreakRecord: PickRecord;
   /** Career lifetime statistics across all seasons */
   lifetimeStats?: LifetimeStats;
 }

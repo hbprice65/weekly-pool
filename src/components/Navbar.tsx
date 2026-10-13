@@ -128,8 +128,8 @@ export function Navbar({
 
           {/* Right Action Cluster: Week Stepper + Refresh + Auth */}
           <div className="flex items-center space-x-2 shrink-0">
-            {/* Week Stepper / Dropdown */}
-            {onSelectWeek && (
+            {/* Week Stepper / Dropdown: only applicable for week-specific tabs (Picks & Scoreboard) */}
+            {onSelectWeek && (activeTab === "picks" || activeTab === "scoreboard") && (
               <div className="flex items-center space-x-0.5 bg-zinc-900/90 border border-zinc-800 rounded-lg sm:rounded-xl p-0.5">
                 <button
                   type="button"

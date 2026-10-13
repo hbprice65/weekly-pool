@@ -31,7 +31,8 @@ const CACHE_TTL_MS = 60 * 1000; // 1 minute cache
  */
 export function calculateFallbackWeek(date?: Date): number {
   const targetDate = date || new Date();
-  const seasonStart = new Date("2026-09-08T00:00:00Z").getTime();
+  const currentYear = targetDate.getFullYear();
+  const seasonStart = new Date(`${currentYear}-09-08T00:00:00Z`).getTime();
   const now = targetDate.getTime();
   if (now < seasonStart) return 1;
   const msInWeek = 7 * 24 * 60 * 60 * 1000;
@@ -261,11 +262,13 @@ export async function fetchNFLWeekSchedule(
 
 /**
  * Queries current active NFL week from live ESPN endpoint
+ * If all games in the returned week are completed/final, advances to the upcoming week.
  */
 export async function fetchCurrentActiveNFLWeek(): Promise<{
   currentWeek: number;
   seasonYear: number;
 }> {
+  const fallbackWeek = calculateFallbackWeek();
   try {
     const res = await fetch(
       "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard",
@@ -273,14 +276,31 @@ export async function fetchCurrentActiveNFLWeek(): Promise<{
     );
     if (res.ok) {
       const data = await res.json();
-      const currentWeek = data.week?.number || calculateFallbackWeek();
-      const seasonYear = data.season?.year || 2026;
-      return { currentWeek, seasonYear };
+      let weekNumber = data.week?.number;
+      const seasonYear = data.season?.year || new Date().getFullYear();
+
+      const events = data.events || [];
+      const allGamesCompleted =
+        events.length > 0 &&
+        events.every((e: { status?: { type?: { completed?: boolean; state?: string } } }) =>
+          Boolean(e.status?.type?.completed || e.status?.type?.state === "post")
+        );
+
+      if (weekNumber !== undefined) {
+        // If all games in the returned week are completed/final, that week is in the past ("last week").
+        // Advance to the active/upcoming week (capped at regular season week 18).
+        if (allGamesCompleted && weekNumber < 18) {
+          weekNumber += 1;
+        }
+        // Ensure week is at least the calendar-calculated fallback week
+        const currentWeek = Math.max(weekNumber, fallbackWeek);
+        return { currentWeek, seasonYear };
+      }
     }
   } catch (err) {
     console.warn("Could not determine current NFL week from ESPN:", err);
   }
-  return { currentWeek: calculateFallbackWeek(), seasonYear: 2026 };
+  return { currentWeek: fallbackWeek, seasonYear: 2026 };
 }
 
 /**
@@ -300,6 +320,7 @@ export async function syncScheduleToSupabase(
     // 1. Upsert week record first
     const startDate = games[0]?.kickoffTime || new Date().toISOString();
     const endDate = games[games.length - 1]?.kickoffTime || new Date().toISOString();
+    const activeWeek = calculateFallbackWeek();
 
     const { error: weekError } = await supabase.from("weeks").upsert(
       {
@@ -309,7 +330,7 @@ export async function syncScheduleToSupabase(
         start_date: startDate,
         end_date: endDate,
         lock_date: startDate,
-        is_current: true,
+        is_current: weekNumber === activeWeek,
         is_completed: games.every((g) => g.status === "FINAL"),
       },
       { onConflict: "week_number" }
