@@ -7,6 +7,8 @@ import {
   X,
   Search,
   Lock,
+  Crown,
+  EyeOff,
 } from "lucide-react";
 import { SevenSegmentIcon } from "@/components/SevenSegmentIcon";
 import { NFL_TEAMS } from "@/lib/nfl-data";
@@ -225,6 +227,24 @@ export function WeeklyScoreboard({
                           <span className="text-white text-xs font-bold truncate max-w-[85px] sm:max-w-[110px]">
                             {entry.displayName}
                           </span>
+                          {(entry.isLeader || entry.role === "leader") && (
+                            <span
+                              className="inline-flex items-center space-x-1 text-[8px] sm:text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0"
+                              title="Pool Leader"
+                            >
+                              <Crown className="w-2.5 h-2.5 text-amber-400" />
+                              <span className="hidden sm:inline">Leader</span>
+                            </span>
+                          )}
+                          {entry.isHidden && (
+                            <span
+                              className="inline-flex items-center space-x-1 text-[8px] sm:text-[9px] font-semibold px-1.5 py-0.2 rounded-full bg-amber-950/80 text-amber-400 border border-amber-800 shrink-0"
+                              title="Hidden from public view"
+                            >
+                              <EyeOff className="w-2.5 h-2.5" />
+                              <span className="hidden sm:inline">Hidden</span>
+                            </span>
+                          )}
                           {isCurrent && (
                             <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 py-0.2 rounded font-bold shrink-0">
                               YOU

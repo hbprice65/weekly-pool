@@ -1,4 +1,4 @@
-import { Game, LeaderboardEntry, UserProfile, Week } from "@/types";
+import { Game, LeaderboardEntry, Pool, PoolMember, UserPoolMembership, UserProfile, Week, DEFAULT_POOL_ID } from "@/types";
 import { NFL_TEAMS } from "./nfl-data";
 
 export const MOCK_USER: UserProfile = {
@@ -8,6 +8,8 @@ export const MOCK_USER: UserProfile = {
   totalPoints: 58,
   seasonRank: 2,
   weeklyRank: 2,
+  role: "leader",
+  isLeader: true,
 };
 
 export const MOCK_GAMES: Game[] = [
@@ -224,6 +226,9 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   {
     userId: "user-demo-01",
     displayName: "GridironGuru (You)",
+    isLeader: true,
+    role: "leader",
+    isHidden: false,
     weeklyPoints: 7,
     weeklyRank: 2,
     totalPoints: 58,
@@ -577,3 +582,194 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
     },
   },
 ];
+
+export const MOCK_POOL_MEMBERS: PoolMember[] = [
+  {
+    poolId: DEFAULT_POOL_ID,
+    userId: "user-demo-01",
+    role: "leader",
+    isHidden: false,
+    joinedAt: "2026-08-01T12:00:00Z",
+    displayName: "GridironGuru",
+    email: "guru@weeklypool.com",
+  },
+  {
+    poolId: DEFAULT_POOL_ID,
+    userId: "u-1",
+    role: "member",
+    isHidden: false,
+    joinedAt: "2026-08-02T14:30:00Z",
+    displayName: "TouchdownKing",
+    email: "tdking@example.com",
+  },
+  {
+    poolId: DEFAULT_POOL_ID,
+    userId: "u-3",
+    role: "member",
+    isHidden: false,
+    joinedAt: "2026-08-05T09:15:00Z",
+    displayName: "FourthAndLong",
+    email: "fourth@example.com",
+  },
+  {
+    poolId: DEFAULT_POOL_ID,
+    userId: "u-4",
+    role: "member",
+    isHidden: false,
+    joinedAt: "2026-08-06T18:45:00Z",
+    displayName: "HailMaryQueen",
+    email: "mary@example.com",
+  },
+  {
+    poolId: DEFAULT_POOL_ID,
+    userId: "u-5",
+    role: "member",
+    isHidden: false,
+    joinedAt: "2026-08-10T11:20:00Z",
+    displayName: "BlitzKrieg",
+    email: "blitz@example.com",
+  },
+  {
+    poolId: DEFAULT_POOL_ID,
+    userId: "u-6",
+    role: "member",
+    isHidden: false,
+    joinedAt: "2026-08-12T16:00:00Z",
+    displayName: "RedZoneRobber",
+    email: "redzone@example.com",
+  },
+];
+
+export const MOCK_POOLS: Pool[] = [
+  {
+    id: DEFAULT_POOL_ID,
+    name: "2026 NFL Weekly Pick'em",
+    slug: "nfl-2026-weekly",
+    description: "Official season-long straight-up NFL pick'em with weekly scoreboard and tiebreakers.",
+    sport: "football",
+    league: "nfl",
+    format: "straight_up",
+    seasonYear: 2026,
+    isPublic: true,
+    joinCode: "NFL2026",
+    creatorId: "user-demo-01",
+    leaderId: "user-demo-01",
+    createdAt: "2026-08-01T12:00:00Z",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000002",
+    name: "Gridiron Office League",
+    slug: "gridiron-office-2026",
+    description: "Company-wide weekly NFL pick'em pool.",
+    sport: "football",
+    league: "nfl",
+    format: "straight_up",
+    seasonYear: 2026,
+    isPublic: false,
+    joinCode: "OFFICE26",
+    creatorId: "office-u1",
+    leaderId: "office-u1",
+    createdAt: "2026-08-15T15:00:00Z",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000003",
+    name: "Sunday Blitz Family Pool",
+    slug: "sunday-blitz-family",
+    description: "Friends & family weekly football picks.",
+    sport: "football",
+    league: "nfl",
+    format: "straight_up",
+    seasonYear: 2026,
+    isPublic: false,
+    joinCode: "BLITZ26",
+    creatorId: "family-u1",
+    leaderId: "family-u1",
+    createdAt: "2026-08-20T18:30:00Z",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000004",
+    name: "Downtown Touchdown Club",
+    slug: "downtown-td-club",
+    description: "Local sports bar straight-up pick'em league.",
+    sport: "football",
+    league: "nfl",
+    format: "straight_up",
+    seasonYear: 2026,
+    isPublic: false,
+    joinCode: "TDCLUB26",
+    creatorId: "club-u1",
+    leaderId: "club-u1",
+    createdAt: "2026-08-25T19:00:00Z",
+  },
+];
+
+export const MOCK_USER_POOLS: UserPoolMembership[] = [
+  {
+    pool: MOCK_POOLS[0],
+    role: "leader",
+    isLeader: true,
+    joinedAt: "2026-08-01T12:00:00Z",
+    memberCount: 6,
+    userRank: 2,
+    userPoints: 58,
+    weeklyPoints: 7,
+  },
+  {
+    pool: MOCK_POOLS[1],
+    role: "member",
+    isLeader: false,
+    joinedAt: "2026-08-16T09:30:00Z",
+    memberCount: 8,
+    userRank: 1,
+    userPoints: 56,
+    weeklyPoints: 11,
+  },
+];
+
+export const MOCK_POOL_OVERRIDES: Record<
+  string,
+  Array<{
+    userId: string;
+    displayName: string;
+    totalPoints: number;
+    weeklyPoints: number;
+    wins: number;
+    losses: number;
+    weeksWon: number;
+    predictedMnfScore: number;
+    winRateBias: number;
+  }>
+> = {
+  // Pool 2: Gridiron Office League (8 distinct office coworkers)
+  "00000000-0000-0000-0000-000000000002": [
+    { userId: "user-demo-01", displayName: "GridironGuru (You)", totalPoints: 56, weeklyPoints: 11, wins: 54, losses: 24, weeksWon: 2, predictedMnfScore: 46, winRateBias: 0.74 },
+    { userId: "office-u1", displayName: "SarahFromAccounting", totalPoints: 53, weeklyPoints: 10, wins: 52, losses: 26, weeksWon: 1, predictedMnfScore: 49, winRateBias: 0.69 },
+    { userId: "office-u2", displayName: "DevOpsDan", totalPoints: 51, weeklyPoints: 11, wins: 50, losses: 28, weeksWon: 1, predictedMnfScore: 43, winRateBias: 0.66 },
+    { userId: "office-u3", displayName: "MarketingMike", totalPoints: 49, weeklyPoints: 9, wins: 48, losses: 30, weeksWon: 1, predictedMnfScore: 51, winRateBias: 0.62 },
+    { userId: "office-u4", displayName: "ProductPaula", totalPoints: 47, weeklyPoints: 8, wins: 47, losses: 31, weeksWon: 0, predictedMnfScore: 38, winRateBias: 0.59 },
+    { userId: "office-u5", displayName: "SalesSam", totalPoints: 44, weeklyPoints: 8, wins: 44, losses: 34, weeksWon: 0, predictedMnfScore: 41, winRateBias: 0.56 },
+    { userId: "office-u6", displayName: "HRHannah", totalPoints: 41, weeklyPoints: 7, wins: 41, losses: 37, weeksWon: 0, predictedMnfScore: 44, winRateBias: 0.52 },
+    { userId: "office-u7", displayName: "InternIan", totalPoints: 38, weeklyPoints: 6, wins: 38, losses: 40, weeksWon: 0, predictedMnfScore: 35, winRateBias: 0.47 },
+  ],
+  // Pool 3: Sunday Blitz Family Pool (5 distinct family members)
+  "00000000-0000-0000-0000-000000000003": [
+    { userId: "family-u1", displayName: "UncleBob", totalPoints: 55, weeklyPoints: 12, wins: 53, losses: 25, weeksWon: 2, predictedMnfScore: 47, winRateBias: 0.73 },
+    { userId: "family-u2", displayName: "CousinVinny", totalPoints: 52, weeklyPoints: 10, wins: 51, losses: 27, weeksWon: 2, predictedMnfScore: 50, winRateBias: 0.68 },
+    { userId: "family-u5", displayName: "CousinJake", totalPoints: 49, weeklyPoints: 9, wins: 48, losses: 30, weeksWon: 1, predictedMnfScore: 44, winRateBias: 0.62 },
+    { userId: "family-u3", displayName: "AuntLinda", totalPoints: 45, weeklyPoints: 8, wins: 45, losses: 33, weeksWon: 0, predictedMnfScore: 41, winRateBias: 0.56 },
+    { userId: "family-u4", displayName: "GrandpaJoe", totalPoints: 40, weeklyPoints: 7, wins: 40, losses: 38, weeksWon: 0, predictedMnfScore: 37, winRateBias: 0.49 },
+  ],
+  // Pool 4: Downtown Touchdown Club (7 distinct sports bar regulars)
+  "00000000-0000-0000-0000-000000000004": [
+    { userId: "club-u1", displayName: "BarstoolBrady", totalPoints: 57, weeklyPoints: 12, wins: 55, losses: 23, weeksWon: 2, predictedMnfScore: 48, winRateBias: 0.75 },
+    { userId: "club-u2", displayName: "SundayTicketSid", totalPoints: 54, weeklyPoints: 11, wins: 52, losses: 26, weeksWon: 2, predictedMnfScore: 45, winRateBias: 0.70 },
+    { userId: "club-u3", displayName: "ParlayPete", totalPoints: 50, weeklyPoints: 10, wins: 49, losses: 29, weeksWon: 1, predictedMnfScore: 52, winRateBias: 0.65 },
+    { userId: "club-u7", displayName: "LuckyLou", totalPoints: 46, weeklyPoints: 8, wins: 46, losses: 32, weeksWon: 0, predictedMnfScore: 42, winRateBias: 0.59 },
+    { userId: "club-u4", displayName: "WingNightWally", totalPoints: 43, weeklyPoints: 8, wins: 43, losses: 35, weeksWon: 0, predictedMnfScore: 40, winRateBias: 0.55 },
+    { userId: "club-u5", displayName: "TailgateTina", totalPoints: 40, weeklyPoints: 7, wins: 40, losses: 38, weeksWon: 0, predictedMnfScore: 38, winRateBias: 0.51 },
+    { userId: "club-u6", displayName: "BuzzerBeaterBen", totalPoints: 36, weeklyPoints: 6, wins: 36, losses: 42, weeksWon: 0, predictedMnfScore: 33, winRateBias: 0.45 },
+  ],
+};
+
+
+

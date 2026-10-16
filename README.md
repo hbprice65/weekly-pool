@@ -8,6 +8,11 @@ A web app for running an NFL weekly pick'em pool. Make straight-up picks each we
 - **Weekly Scoreboard**: Live ESPN scores alongside a "Who Picked Who" matrix showing every participant's pick and live game status.
 - **Standings & Stats**: Season-long and lifetime standings tracking total points, picks record, clutch record (performance in SNF and MNF games when within 2 points of the weekly lead at kickoff), and tiebreaker records.
 - **Tiebreaker Scoring**: When members tie for first place at the end of the week, the participant closest to the final MNF total score earns an extra point to break the tie and win the week.
+- **Admin Tools**: Every pool has an administrator equipped with essential tools:
+  - **Member Management**: Remove members or transfer leadership.
+  - **Show / Hide Members**: Toggle visibility of participants from public leaderboards and scoreboards without deleting historical pick records.
+  - **Doomsday Pick Editor**: Commissioner emergency override to enter or modify picks and Monday Night Football tiebreaker scores on behalf of any member (e.g. system crashes, lost device, picks texted before kickoff).
+  - **Multi-Pool & Multi-Sport Architecture**: Built to easily extend to Survivor, Against the Spread, and Confidence pools across NFL, NCAAF, NBA, and other leagues.
 - **Authentication**: Sign in with Google OAuth or email via Supabase.
 
 ## Tech Stack
@@ -38,8 +43,9 @@ NEXT_PUBLIC_SEASON_YEAR=2026
 
 ### 3. Database Setup
 
-Run the SQL migration in your Supabase SQL Editor:
-- [`supabase/schema_v2.sql`](file:///c:/Users/hbpri/weekly-pool/supabase/schema_v2.sql): sets up `profiles`, `pools`, `games`, `picks`, and `tiebreakers` tables along with Row-Level Security policies.
+Run the SQL migrations in your Supabase SQL Editor:
+1. [`supabase/schema_v2.sql`](file:///c:/Users/hbpri/weekly-pool/supabase/schema_v2.sql): sets up `profiles`, `pools`, `games`, `picks`, and `tiebreakers` tables along with Row-Level Security policies.
+2. [`supabase/pool_leader_and_admin_tools.sql`](file:///c:/Users/hbpri/weekly-pool/supabase/pool_leader_and_admin_tools.sql): configures pool leader permissions, member visibility controls, and emergency doomsday pick override policies.
 
 ### 4. Run the App
 

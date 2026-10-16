@@ -249,6 +249,14 @@ export function AuthModal({
               </div>
             </div>
 
+            <a
+              href="/account"
+              className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition active:scale-98"
+            >
+              <User className="w-4 h-4" />
+              <span>My Pools &amp; Account Settings</span>
+            </a>
+
             <button
               type="button"
               onClick={handleSignOut}

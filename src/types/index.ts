@@ -51,11 +51,16 @@ export interface Pool {
   joinCode?: string;
   /** Supabase Auth user ID of the pool administrator/creator */
   creatorId?: string;
+  /** Supabase Auth user ID of the designated pool leader */
+  leaderId?: string;
   /** Flexible JSON configuration (tiebreakers, deadline rules, drop lowest weeks) */
   settings?: Record<string, unknown>;
   /** Timestamp when the pool was provisioned */
   createdAt?: string;
 }
+
+/** Privilege roles within a pool */
+export type PoolRole = "leader" | "admin" | "member";
 
 /**
  * Association linking users to the pools they belong to.
@@ -66,9 +71,49 @@ export interface PoolMember {
   /** Participant Supabase Auth UUID */
   userId: string;
   /** Membership privilege level */
-  role: "admin" | "member";
+  role: PoolRole;
+  /** Whether this member is hidden from public standings/scoreboards */
+  isHidden?: boolean;
   /** Timestamp when user enrolled in pool */
   joinedAt: string;
+  /** Optional user profile details for admin and display tables */
+  displayName?: string;
+  avatarUrl?: string;
+  email?: string;
+}
+
+/**
+ * Summary of a pool where the current user is a member, shown on the Account page.
+ */
+export interface UserPoolMembership {
+  /** Pool details */
+  pool: Pool;
+  /** User's role in this pool */
+  role: PoolRole;
+  /** Whether the user is the leader/commissioner of this pool */
+  isLeader: boolean;
+  /** ISO timestamp when the user joined the pool */
+  joinedAt: string;
+  /** Total active members in the pool */
+  memberCount: number;
+  /** User's current season rank in this pool */
+  userRank?: number;
+  /** User's current season points in this pool */
+  userPoints?: number;
+  /** User's points in the current week in this pool */
+  weeklyPoints?: number;
+}
+
+/**
+ * Payload for commissioner/leader emergency pick override ("Doomsday Scenario")
+ */
+export interface DoomsdayPickPayload {
+  poolId: string;
+  targetUserId: string;
+  weekNumber: number;
+  picks: Record<string, string>;
+  mnfScore?: number | string;
+  reason?: string;
 }
 
 // ==============================================================================
@@ -224,6 +269,10 @@ export interface UserProfile {
   seasonRank?: number;
   /** Administrator privileges flag */
   isAdmin?: boolean;
+  /** Role within current pool */
+  role?: PoolRole;
+  /** Whether the user is the pool leader */
+  isLeader?: boolean;
 }
 
 /**
@@ -304,4 +353,10 @@ export interface LeaderboardEntry {
   tiebreakRecord: PickRecord;
   /** Career lifetime statistics across all seasons */
   lifetimeStats?: LifetimeStats;
+  /** Role in the pool */
+  role?: PoolRole;
+  /** Whether this participant is the designated pool leader */
+  isLeader?: boolean;
+  /** Whether this member has been hidden from public leaderboards by the pool leader */
+  isHidden?: boolean;
 }
