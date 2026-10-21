@@ -25,7 +25,11 @@ export const metadata: Metadata = {
   description: "Weekly NFL picks pool with live matchups, leaderboards, and standings",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html
       lang="en"

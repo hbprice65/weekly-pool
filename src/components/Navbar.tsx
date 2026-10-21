@@ -36,6 +36,7 @@ interface NavbarProps {
   poolName?: string;
   poolCode?: string;
   onSwitchPool?: () => void;
+  isPlayoff?: boolean;
 }
 
 /**
@@ -83,6 +84,7 @@ export function Navbar({
   poolName = "2026 NFL Weekly Pick'em",
   poolCode: _poolCode,
   onSwitchPool: _onSwitchPool,
+  isPlayoff = false,
 }: NavbarProps) {
   const poolAbbr = getPoolAbbreviation(poolName);
 
@@ -276,7 +278,7 @@ export function Navbar({
                     onClick={() => onSelectWeek(Math.max(1, selectedWeek - 1))}
                     disabled={selectedWeek <= 1}
                     className="p-1 rounded-md text-zinc-400 hover:text-white disabled:opacity-25 transition cursor-pointer"
-                    title="Previous Week"
+                    title={isPlayoff ? "Previous Playoff Round" : "Previous Week"}
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
@@ -284,20 +286,37 @@ export function Navbar({
                     value={selectedWeek}
                     onChange={(e) => onSelectWeek(Number(e.target.value))}
                     className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer py-0.5 px-1 sm:px-1.5 border-none"
-                    aria-label="Select NFL Week"
+                    aria-label={isPlayoff ? "Select Playoff Round" : "Select NFL Week"}
                   >
-                    {Array.from({ length: 18 }, (_, i) => i + 1).map((w) => (
-                      <option key={w} value={w} className="bg-zinc-900 text-white font-sans">
-                        Wk {w}
-                      </option>
-                    ))}
+                    {isPlayoff ? (
+                      <>
+                        <option value={1} className="bg-zinc-900 text-white font-sans">
+                          Wild Card
+                        </option>
+                        <option value={2} className="bg-zinc-900 text-white font-sans">
+                          Divisional
+                        </option>
+                        <option value={3} className="bg-zinc-900 text-white font-sans">
+                          Conf Finals
+                        </option>
+                        <option value={4} className="bg-zinc-900 text-white font-sans">
+                          Super Bowl
+                        </option>
+                      </>
+                    ) : (
+                      Array.from({ length: 18 }, (_, i) => i + 1).map((w) => (
+                        <option key={w} value={w} className="bg-zinc-900 text-white font-sans">
+                          Wk {w}
+                        </option>
+                      ))
+                    )}
                   </select>
                   <button
                     type="button"
-                    onClick={() => onSelectWeek(Math.min(18, selectedWeek + 1))}
-                    disabled={selectedWeek >= 18}
+                    onClick={() => onSelectWeek(Math.min(isPlayoff ? 4 : 18, selectedWeek + 1))}
+                    disabled={selectedWeek >= (isPlayoff ? 4 : 18)}
                     className="p-1 rounded-md text-zinc-400 hover:text-white disabled:opacity-25 transition cursor-pointer"
-                    title="Next Week"
+                    title={isPlayoff ? "Next Playoff Round" : "Next Week"}
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -403,7 +422,7 @@ export function Navbar({
                     onClick={() => onSelectWeek(Math.max(1, selectedWeek - 1))}
                     disabled={selectedWeek <= 1}
                     className="p-1 rounded-md text-zinc-400 hover:text-white disabled:opacity-25 transition cursor-pointer"
-                    title="Previous Week"
+                    title={isPlayoff ? "Previous Playoff Round" : "Previous Week"}
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
@@ -411,20 +430,37 @@ export function Navbar({
                     value={selectedWeek}
                     onChange={(e) => onSelectWeek(Number(e.target.value))}
                     className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer py-0.5 px-1 border-none"
-                    aria-label="Select NFL Week"
+                    aria-label={isPlayoff ? "Select Playoff Round" : "Select NFL Week"}
                   >
-                    {Array.from({ length: 18 }, (_, i) => i + 1).map((w) => (
-                      <option key={w} value={w} className="bg-zinc-900 text-white font-sans">
-                        Wk {w}
-                      </option>
-                    ))}
+                    {isPlayoff ? (
+                      <>
+                        <option value={1} className="bg-zinc-900 text-white font-sans">
+                          Wild Card
+                        </option>
+                        <option value={2} className="bg-zinc-900 text-white font-sans">
+                          Divisional
+                        </option>
+                        <option value={3} className="bg-zinc-900 text-white font-sans">
+                          Conf Finals
+                        </option>
+                        <option value={4} className="bg-zinc-900 text-white font-sans">
+                          Super Bowl
+                        </option>
+                      </>
+                    ) : (
+                      Array.from({ length: 18 }, (_, i) => i + 1).map((w) => (
+                        <option key={w} value={w} className="bg-zinc-900 text-white font-sans">
+                          Wk {w}
+                        </option>
+                      ))
+                    )}
                   </select>
                   <button
                     type="button"
-                    onClick={() => onSelectWeek(Math.min(18, selectedWeek + 1))}
-                    disabled={selectedWeek >= 18}
+                    onClick={() => onSelectWeek(Math.min(isPlayoff ? 4 : 18, selectedWeek + 1))}
+                    disabled={selectedWeek >= (isPlayoff ? 4 : 18)}
                     className="p-1 rounded-md text-zinc-400 hover:text-white disabled:opacity-25 transition cursor-pointer"
-                    title="Next Week"
+                    title={isPlayoff ? "Next Playoff Round" : "Next Week"}
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>

@@ -127,7 +127,17 @@ export default function Home() {
 
   // Playoff Challenge state
   const isPlayoffChallenge = activePool?.format === "playoff_challenge";
-  const [playoffRound, setPlayoffRound] = useState<PlayoffRound>(1);
+  const [playoffRound, setPlayoffRound] = useState<PlayoffRound>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const r = params.get("round") || params.get("week");
+      if (r) {
+        const parsed = parseInt(r, 10);
+        if (parsed >= 1 && parsed <= 4) return parsed as PlayoffRound;
+      }
+    }
+    return 1;
+  });
   const [playoffLineup, setPlayoffLineup] = useState<PlayoffUserLineupMap>(getEmptyPlayoffLineup());
   const [previousPlayoffLineup, setPreviousPlayoffLineup] = useState<PlayoffUserLineupMap | undefined>(undefined);
   const [playoffLeaderboardEntries, setPlayoffLeaderboardEntries] = useState<PlayoffLeaderboardEntry[]>([]);
@@ -579,6 +589,16 @@ export default function Home() {
   }, [loadWeekData, selectedWeek]);
 
   const handleSelectWeek = (newWeek: number) => {
+    if (isPlayoffChallenge) {
+      const r = Math.max(1, Math.min(4, newWeek)) as PlayoffRound;
+      setPlayoffRound(r);
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("round", String(r));
+        window.history.replaceState(null, "", url.toString());
+      }
+      return;
+    }
     setSelectedWeek(newWeek);
     loadWeekData(newWeek, false);
     if (typeof window !== "undefined") {
@@ -589,6 +609,15 @@ export default function Home() {
   };
 
   const handleRefresh = () => {
+    if (isPlayoffChallenge) {
+      const uid = currentUser?.id || "demo_user";
+      fetchUserPlayoffLineup(activePool.id, uid, playoffRound).then(setPlayoffLineup);
+      if (playoffRound > 1) {
+        fetchUserPlayoffLineup(activePool.id, uid, (playoffRound - 1) as PlayoffRound).then(setPreviousPlayoffLineup);
+      }
+      fetchPlayoffLeaderboard(activePool.id, uid, playoffRound).then(setPlayoffLeaderboardEntries);
+      return;
+    }
     loadWeekData(selectedWeek, true);
     loadSeasonStandings();
   };
@@ -742,7 +771,7 @@ export default function Home() {
       <Navbar
         activeTab={activeTab}
         setActiveTab={handleTabChange}
-        selectedWeek={selectedWeek}
+        selectedWeek={isPlayoffChallenge ? playoffRound : selectedWeek}
         onSelectWeek={handleSelectWeek}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
@@ -755,6 +784,7 @@ export default function Home() {
         isLeader={isPoolLeader}
         poolName={activePool?.name || "2026 NFL Weekly Pick'em"}
         poolCode={activePool?.joinCode}
+        isPlayoff={isPlayoffChallenge}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 pb-24 sm:pb-12">
@@ -831,7 +861,6 @@ export default function Home() {
           isPlayoffChallenge ? (
             <PlayoffLineupCard
               currentRound={playoffRound}
-              onSelectRound={(r) => setPlayoffRound(r)}
               lineup={playoffLineup}
               previousRoundLineup={previousPlayoffLineup}
               onUpdateLineup={(updated) => setPlayoffLineup(updated)}
