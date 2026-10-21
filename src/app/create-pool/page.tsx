@@ -9,6 +9,8 @@ import {
   createPoolQuickSetup,
   generateJoinCode,
   getCurrentUser,
+  getActivePoolId,
+  getSavedActivePool,
   setActivePoolId,
   setSavedActivePool,
 } from "@/lib/supabase/picks-service";
@@ -17,16 +19,10 @@ import {
   Check,
   AlertCircle,
   Loader2,
-  Plus,
   Trophy,
   CheckCircle2,
   Scale,
   ShieldAlert,
-  Sparkles,
-  Info,
-  Calendar,
-  Layers,
-  Zap,
 } from "lucide-react";
 
 export default function CreatePoolPage() {
@@ -35,27 +31,30 @@ export default function CreatePoolPage() {
   const [poolName, setPoolName] = useState<string>("");
   const [selectedPresetId, setSelectedPresetId] =
     useState<PoolDesignPreset["id"]>("classic_straight_up");
-  const [formatFilter, setFormatFilter] = useState<"all" | "postseason" | "regular_season">("all");
   const [customJoinCode, setCustomJoinCode] = useState<string>("");
   const [previewJoinCode, setPreviewJoinCode] = useState<string>("NFL-2026");
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Check URL query parameters for pre-selected format (e.g. /create-pool?format=playoff_challenge)
+  // Active pool for header reference
+  const [activePoolName, setActivePoolName] = useState<string | null>(null);
+
   useEffect(() => {
-    queueMicrotask(() => {
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        const fmt = params.get("format");
-        if (fmt === "playoff_challenge" || fmt === "playoffs") {
-          setSelectedPresetId("playoff_challenge");
-          setPreviewJoinCode(generateJoinCode("PLAYOFF"));
-          return;
-        }
+    if (typeof window !== "undefined") {
+      const saved = getSavedActivePool();
+      if (saved?.name) {
+        setActivePoolName(saved.name);
+      }
+      const params = new URLSearchParams(window.location.search);
+      const fmt = params.get("format");
+      if (fmt === "playoff_challenge" || fmt === "playoffs") {
+        setSelectedPresetId("playoff_challenge");
+        setPreviewJoinCode(generateJoinCode("PLAYOFF"));
+        return;
       }
       setPreviewJoinCode(generateJoinCode("NFL"));
-    });
+    }
 
     getCurrentUser()
       .then((user) => {
@@ -101,91 +100,109 @@ export default function CreatePoolPage() {
     }
   };
 
-  const filteredPresets = POOL_DESIGN_PRESETS.filter((p) => {
-    if (formatFilter === "all") return true;
-    return p.category === formatFilter;
-  });
-
-  const selectedPreset = POOL_DESIGN_PRESETS.find((p) => p.id === selectedPresetId);
+  const selectedPreset =
+    POOL_DESIGN_PRESETS.find((p) => p.id === selectedPresetId) ||
+    POOL_DESIGN_PRESETS[0];
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-black">
-      {/* Header */}
+      {/* Top Header Bar — Matching site-wide container width and styling */}
       <header className="border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <Link
-            href="/#home"
-            className="flex items-center space-x-2 text-xs font-semibold text-zinc-400 hover:text-white transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back</span>
-          </Link>
-          <span className="text-xs font-bold text-zinc-300">Create a Pool</span>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center space-x-3 min-w-0">
+            <Link
+              href="/"
+              className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition flex items-center space-x-1.5 text-xs font-semibold shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Pool</span>
+            </Link>
+
+            <div className="h-5 w-px bg-zinc-800 hidden sm:block" />
+
+            <h1 className="text-sm sm:text-base font-bold text-white truncate">
+              Create a Pool
+            </h1>
+          </div>
+
+          <div className="flex items-center space-x-2.5 shrink-0">
+            {activePoolName && (
+              <Link
+                href="/"
+                className="flex items-center space-x-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs hover:bg-emerald-500/15 transition"
+                title={`Active Pool: ${activePoolName}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="text-zinc-400 hidden sm:inline">Active:</span>
+                <span className="font-bold text-emerald-400 truncate max-w-[140px] sm:max-w-[200px]">
+                  {activePoolName}
+                </span>
+              </Link>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Form Container */}
-      <main className="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sm:p-8 space-y-6">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white">
-              Create a New Pool
-            </h1>
-            <p className="text-xs text-zinc-400 mt-1">
-              Select your contest format and set up a private league for your friends.
-            </p>
-          </div>
+      {/* Main Content Area — Consistent max-w-5xl width with account & subpages */}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">
+            Create a New Pool
+          </h1>
+          <p className="text-sm text-zinc-400 mt-1">
+            Choose your game format and configure your private league.
+          </p>
+        </div>
 
-          <form onSubmit={handleCreate} className="space-y-6">
-            {/* 1. Pool Format Selection */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column: Format Selection & Rules */}
+          <div className="lg:col-span-7 space-y-6">
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 block">
-                  Select Contest Format
-                </label>
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 block">
+                Select Contest Format
+              </label>
 
-                {/* Category Filter Chips */}
-                <div className="flex items-center gap-1 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setFormatFilter("all")}
-                    className={`px-2 py-0.5 rounded-md transition font-medium ${
-                      formatFilter === "all"
-                        ? "bg-zinc-700 text-white font-bold"
-                        : "text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormatFilter("postseason")}
-                    className={`px-2 py-0.5 rounded-md transition font-medium ${
-                      formatFilter === "postseason"
-                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold"
-                        : "text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    Playoffs
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormatFilter("regular_season")}
-                    className={`px-2 py-0.5 rounded-md transition font-medium ${
-                      formatFilter === "regular_season"
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold"
-                        : "text-zinc-400 hover:text-white"
-                    }`}
-                  >
-                    Regular Season
-                  </button>
-                </div>
-              </div>
-
-              {/* Format Cards */}
-              <div className="space-y-2.5">
-                {filteredPresets.map((preset) => {
+              {/* Format Cards Grid — Clean typography, no filters, no bubbly text pills */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {POOL_DESIGN_PRESETS.map((preset) => {
                   const isSelected = selectedPresetId === preset.id;
+                  const isPlaceholder = preset.isPlaceholder;
+
+                  if (isPlaceholder) {
+                    return (
+                      <div
+                        key={preset.id}
+                        className="p-4 rounded-xl border border-zinc-800/60 bg-zinc-900/30 opacity-60 flex flex-col justify-between"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="w-8 h-8 rounded-lg bg-zinc-800 text-zinc-400 border border-zinc-700/50 flex items-center justify-center">
+                              {preset.format === "against_spread" ? (
+                                <Scale className="w-4 h-4" />
+                              ) : (
+                                <ShieldAlert className="w-4 h-4" />
+                              )}
+                            </div>
+                            <span className="text-xs text-zinc-500">Coming soon</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-semibold text-zinc-300 block">
+                              {preset.title}
+                            </span>
+                            <span className="text-xs text-zinc-500 block">
+                              {preset.format === "against_spread"
+                                ? "Against the Spread"
+                                : "Survivor Elimination"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-zinc-500 leading-relaxed">
+                            {preset.summary}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   const isPlayoffs = preset.format === "playoff_challenge";
 
                   return (
@@ -193,242 +210,271 @@ export default function CreatePoolPage() {
                       key={preset.id}
                       type="button"
                       onClick={() => handleSelectFormat(preset.id)}
-                      className={`w-full text-left p-4 rounded-xl border transition cursor-pointer flex items-start justify-between gap-3 ${
+                      className={`w-full text-left p-4 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
                         isSelected
                           ? isPlayoffs
-                            ? "bg-amber-950/25 border-amber-500/60 shadow-lg shadow-amber-950/20"
-                            : "bg-emerald-950/30 border-emerald-500/60 shadow-lg shadow-emerald-950/20"
-                          : "bg-zinc-950 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-950/80"
+                            ? "border-amber-500/80 bg-zinc-900 ring-1 ring-amber-500/40"
+                            : "border-emerald-500/80 bg-zinc-900 ring-1 ring-emerald-500/40"
+                          : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-700 hover:bg-zinc-900"
                       }`}
                     >
-                      <div className="flex items-start gap-3 min-w-0">
-                        {/* Format Icon */}
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border mt-0.5 ${
-                            isSelected
-                              ? isPlayoffs
-                                ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
-                                : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-                              : "bg-zinc-900 text-zinc-500 border-zinc-800"
-                          }`}
-                        >
-                          {preset.format === "playoff_challenge" ? (
-                            <Trophy className="w-5 h-5" />
-                          ) : preset.format === "straight_up" ? (
-                            <CheckCircle2 className="w-5 h-5" />
-                          ) : preset.format === "against_spread" ? (
-                            <Scale className="w-5 h-5" />
-                          ) : (
-                            <ShieldAlert className="w-5 h-5" />
-                          )}
-                        </div>
-
-                        {/* Title & Summary */}
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold text-white">
-                              {preset.title}
-                            </span>
-
-                            {/* Postseason / Regular Season Tag */}
-                            <span
-                              className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded border ${
-                                isPlayoffs
-                                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                                  : "bg-zinc-800 text-zinc-400 border-zinc-700"
-                              }`}
-                            >
-                              {preset.category === "postseason"
-                                ? "Postseason"
-                                : "Regular Season"}
-                            </span>
-
-                            {/* Badge */}
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                preset.isPlaceholder
-                                  ? "bg-zinc-800 text-zinc-400 border-zinc-700"
-                                  : isPlayoffs
-                                  ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                                  : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                              }`}
-                            >
-                              {preset.badge}
-                            </span>
+                      <div className="space-y-2.5 w-full">
+                        <div className="flex items-center justify-between">
+                          <div
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
+                              isSelected
+                                ? isPlayoffs
+                                  ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                                  : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                                : "bg-zinc-800 text-zinc-400 border-zinc-700/60"
+                            }`}
+                          >
+                            {isPlayoffs ? (
+                              <Trophy className="w-4 h-4" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4" />
+                            )}
                           </div>
 
-                          <p className="text-xs text-zinc-400">
-                            {preset.summary}
-                          </p>
-
-                          {/* Rule Pills */}
-                          <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                            {preset.rulesPreview.slice(0, 3).map((rule, idx) => (
-                              <span
-                                key={idx}
-                                className="text-[10px] text-zinc-400 bg-zinc-900 border border-zinc-800/80 px-2 py-0.5 rounded-md"
-                              >
-                                {rule}
-                              </span>
-                            ))}
+                          <div
+                            className={`w-5 h-5 rounded-md border flex items-center justify-center transition ${
+                              isSelected
+                                ? isPlayoffs
+                                  ? "border-amber-400 bg-amber-500 text-zinc-950"
+                                  : "border-emerald-400 bg-emerald-500 text-zinc-950"
+                                : "border-zinc-700 bg-zinc-850"
+                            }`}
+                          >
+                            {isSelected && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
                           </div>
                         </div>
-                      </div>
 
-                      {/* Selection Radio Circle */}
-                      <div
-                        className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-1 ${
-                          isSelected
-                            ? isPlayoffs
-                              ? "border-amber-400 bg-amber-500 text-zinc-950"
-                              : "border-emerald-400 bg-emerald-500 text-zinc-950"
-                            : "border-zinc-700 bg-zinc-900"
-                        }`}
-                      >
-                        {isSelected && <Check className="w-3 h-3" strokeWidth={3} />}
+                        <div>
+                          <span className="text-sm font-semibold text-white block">
+                            {preset.title}
+                          </span>
+                          <span className="text-xs text-zinc-400 block mt-0.5">
+                            {isPlayoffs
+                              ? "Postseason Fantasy Roster"
+                              : "Weekly Straight-Up Pick'em"}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-zinc-400 leading-relaxed">
+                          {preset.summary}
+                        </p>
+
+                        <ul className="pt-1.5 space-y-1 text-xs text-zinc-400">
+                          {preset.rulesPreview.slice(0, 3).map((rule, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <span className="text-zinc-500 leading-tight">•</span>
+                              <span className="leading-tight">{rule}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     </button>
                   );
                 })}
               </div>
+            </div>
 
-              {/* Format-Specific Configuration Preview */}
-              {selectedPresetId === "playoff_challenge" && (
-                <div className="p-4 rounded-xl bg-gradient-to-br from-amber-950/20 via-zinc-900 to-zinc-950 border border-amber-500/30 space-y-3 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-400" />
-                      <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">
-                        Playoff Challenge Rules Summary
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                      Active Format
+            {/* Selected Format Rules & Specs Details */}
+            {selectedPresetId === "playoff_challenge" ? (
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5 space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-400/90 block">
+                  Playoff Challenge Rules Summary
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-3 rounded-lg bg-zinc-950/70 border border-zinc-800/80">
+                    <span className="text-zinc-500 block mb-0.5">
+                      Roster Composition
+                    </span>
+                    <span className="text-white font-medium">
+                      1 QB, 2 RB, 2 WR, 1 TE, 1 K, 1 DEF
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <div className="p-2.5 rounded-lg bg-zinc-950/70 border border-zinc-800/80">
-                      <span className="text-[10px] uppercase font-bold text-zinc-500 block">
-                        Roster Composition
-                      </span>
-                      <span className="text-white font-bold">
-                        1 QB, 2 RB, 2 WR, 1 TE, 1 K, 1 DEF
-                      </span>
-                    </div>
+                  <div className="p-3 rounded-lg bg-zinc-950/70 border border-zinc-800/80">
+                    <span className="text-zinc-500 block mb-0.5">
+                      Consecutive Multipliers
+                    </span>
+                    <span className="text-amber-300 font-medium">
+                      1x → 2x → 3x → 4x Weekly Streak
+                    </span>
+                  </div>
 
-                    <div className="p-2.5 rounded-lg bg-zinc-950/70 border border-zinc-800/80">
-                      <span className="text-[10px] uppercase font-bold text-zinc-500 block">
-                        Consecutive Multipliers
-                      </span>
-                      <span className="text-amber-300 font-bold">
-                        1x → 2x → 3x → 4x Points Streak
-                      </span>
-                    </div>
+                  <div className="p-3 rounded-lg bg-zinc-950/70 border border-zinc-800/80">
+                    <span className="text-zinc-500 block mb-0.5">
+                      Scoring Format
+                    </span>
+                    <span className="text-emerald-300 font-medium">
+                      Full PPR (1.0 pt per reception)
+                    </span>
+                  </div>
 
-                    <div className="p-2.5 rounded-lg bg-zinc-950/70 border border-zinc-800/80">
-                      <span className="text-[10px] uppercase font-bold text-zinc-500 block">
-                        Scoring Format
-                      </span>
-                      <span className="text-emerald-300 font-bold">
-                        Full PPR (1.0 point per reception)
-                      </span>
-                    </div>
-
-                    <div className="p-2.5 rounded-lg bg-zinc-950/70 border border-zinc-800/80">
-                      <span className="text-[10px] uppercase font-bold text-zinc-500 block">
-                        Wild Card Bye Strategy
-                      </span>
-                      <span className="text-sky-300 font-bold">
-                        #1 Seeds Active for 2x Divisional Boost
-                      </span>
-                    </div>
+                  <div className="p-3 rounded-lg bg-zinc-950/70 border border-zinc-800/80">
+                    <span className="text-zinc-500 block mb-0.5">
+                      Wild Card Bye Strategy
+                    </span>
+                    <span className="text-sky-300 font-medium">
+                      #1 Seeds Eligible for 2x Divisional Boost
+                    </span>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5 space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400/90 block">
+                  Straight-Up Pick&apos;em Rules Summary
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  <div className="p-3 rounded-lg bg-zinc-950/70 border border-zinc-800/80">
+                    <span className="text-zinc-500 block mb-0.5">
+                      Scoring
+                    </span>
+                    <span className="text-white font-medium">
+                      1 point per correct game winner
+                    </span>
+                  </div>
 
-            {/* 2. Pool Name */}
-            <div className="space-y-2">
-              <label
-                htmlFor="pool-name"
-                className="text-xs font-bold uppercase tracking-wider text-zinc-300 block"
-              >
-                Pool Name
-              </label>
-              <input
-                id="pool-name"
-                type="text"
-                required
-                minLength={3}
-                maxLength={50}
-                value={poolName}
-                onChange={(e) => {
-                  setPoolName(e.target.value);
-                  setErrorMsg(null);
-                }}
-                placeholder={
-                  selectedPresetId === "playoff_challenge"
-                    ? "e.g. 2026 Playoff Fantasy Challenge"
-                    : "e.g. Sunday Friends League"
-                }
-                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 rounded-xl text-sm text-white placeholder:text-zinc-500 focus:outline-none transition"
-              />
-            </div>
+                  <div className="p-3 rounded-lg bg-zinc-950/70 border border-zinc-800/80">
+                    <span className="text-zinc-500 block mb-0.5">
+                      Pick Lock Time
+                    </span>
+                    <span className="text-white font-medium">
+                      Individual kickoff for each game
+                    </span>
+                  </div>
 
-            {/* 3. Invite Code */}
-            <div className="space-y-2">
-              <label
-                htmlFor="join-code"
-                className="text-xs font-bold uppercase tracking-wider text-zinc-300 block"
-              >
-                Custom Invite Code
-              </label>
-              <input
-                id="join-code"
-                type="text"
-                maxLength={12}
-                value={customJoinCode}
-                onChange={(e) =>
-                  setCustomJoinCode(
-                    e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "")
-                  )
-                }
-                placeholder={previewJoinCode}
-                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 rounded-xl text-sm font-mono font-bold text-emerald-400 placeholder:text-emerald-400/60 focus:outline-none transition"
-              />
-              <p className="text-[11px] text-zinc-500">
-                Share this passcode with your friends so they can join your pool.
-              </p>
-            </div>
-
-            {errorMsg && (
-              <div className="p-3 rounded-xl text-xs flex items-center space-x-2 border bg-rose-950/50 text-rose-300 border-rose-800/70">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>{errorMsg}</span>
+                  <div className="p-3 rounded-lg bg-zinc-950/70 border border-zinc-800/80">
+                    <span className="text-zinc-500 block mb-0.5">
+                      Tiebreaker
+                    </span>
+                    <span className="text-emerald-300 font-medium">
+                      Monday Night Football total points
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
+          </div>
 
-            <button
-              type="submit"
-              disabled={isCreating}
-              className="w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm rounded-xl transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-60 shadow-lg shadow-emerald-500/20"
-            >
-              {isCreating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Plus className="w-4 h-4" />
-                  <span>
-                    Create{" "}
-                    {selectedPresetId === "playoff_challenge"
-                      ? "Playoff Challenge Pool"
-                      : "Pool"}
+          {/* Right Column: Pool Setup Details Form */}
+          <div className="lg:col-span-5">
+            <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 space-y-5 lg:sticky lg:top-24">
+              <div>
+                <h2 className="text-base font-bold text-white">
+                  Pool Details
+                </h2>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Set league name and invite passcode.
+                </p>
+              </div>
+
+              {/* Selected Format Summary Bar */}
+              <div className="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-zinc-500 block">Format</span>
+                  <span className="text-white font-semibold">
+                    {selectedPreset.title}
                   </span>
-                </>
-              )}
-            </button>
-          </form>
+                </div>
+                <span className="text-zinc-400 text-xs">
+                  {selectedPreset.category === "postseason"
+                    ? "Postseason"
+                    : "Regular Season"}
+                </span>
+              </div>
+
+              <form onSubmit={handleCreate} className="space-y-4">
+                {/* Pool Name */}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="pool-name"
+                    className="text-xs font-semibold text-zinc-300 block"
+                  >
+                    Pool Name
+                  </label>
+                  <input
+                    id="pool-name"
+                    type="text"
+                    required
+                    minLength={3}
+                    maxLength={50}
+                    value={poolName}
+                    onChange={(e) => {
+                      setPoolName(e.target.value);
+                      setErrorMsg(null);
+                    }}
+                    placeholder={
+                      selectedPresetId === "playoff_challenge"
+                        ? "e.g. 2026 Playoff Fantasy Challenge"
+                        : "e.g. Sunday Pick'em League"
+                    }
+                    className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none transition"
+                  />
+                  <p className="text-[11px] text-zinc-500">
+                    Must be at least 3 characters.
+                  </p>
+                </div>
+
+                {/* Invite Code */}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="join-code"
+                    className="text-xs font-semibold text-zinc-300 block"
+                  >
+                    Custom Invite Code
+                  </label>
+                  <input
+                    id="join-code"
+                    type="text"
+                    maxLength={12}
+                    value={customJoinCode}
+                    onChange={(e) =>
+                      setCustomJoinCode(
+                        e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "")
+                      )
+                    }
+                    placeholder={previewJoinCode}
+                    className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl text-sm font-mono font-bold text-emerald-400 placeholder:text-zinc-600 focus:outline-none transition"
+                  />
+                  <p className="text-[11px] text-zinc-500">
+                    Friends will use this code to join. Leave blank to auto-generate.
+                  </p>
+                </div>
+
+                {errorMsg && (
+                  <div className="p-3 rounded-xl text-xs flex items-center space-x-2 border bg-rose-950/50 text-rose-300 border-rose-800/70">
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm rounded-xl transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-60 shadow-md shadow-emerald-500/10"
+                >
+                  {isCreating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <span>
+                      Create{" "}
+                      {selectedPresetId === "playoff_challenge"
+                        ? "Playoff Challenge Pool"
+                        : "Pool"}
+                    </span>
+                  )}
+                </button>
+
+                <p className="text-[11px] text-zinc-500 text-center">
+                  You will automatically become the commissioner of this pool.
+                </p>
+              </form>
+            </div>
+          </div>
         </div>
       </main>
     </div>

@@ -31,7 +31,7 @@ import {
 
 interface PlayoffLineupCardProps {
   currentRound: PlayoffRound;
-  onSelectRound: (round: PlayoffRound) => void;
+  onSelectRound?: (round: PlayoffRound) => void;
   lineup: PlayoffUserLineupMap;
   previousRoundLineup?: PlayoffUserLineupMap;
   onUpdateLineup: (updated: PlayoffUserLineupMap) => void;
@@ -42,7 +42,7 @@ interface PlayoffLineupCardProps {
 
 export function PlayoffLineupCard({
   currentRound,
-  onSelectRound,
+  onSelectRound: _onSelectRound,
   lineup,
   previousRoundLineup,
   onUpdateLineup,
@@ -112,45 +112,6 @@ export function PlayoffLineupCard({
 
   return (
     <div className="space-y-6">
-      {/* Playoff Round Navigation Tabs */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-2 sm:p-2.5">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
-          {PLAYOFF_ROUNDS.map((r) => {
-            const isSelected = r.round === currentRound;
-            return (
-              <button
-                key={r.round}
-                type="button"
-                onClick={() => onSelectRound(r.round)}
-                className={`flex flex-col items-center justify-center py-2.5 px-3 rounded-xl border transition cursor-pointer text-center ${
-                  isSelected
-                    ? "bg-emerald-950/40 border-emerald-500/60 text-white shadow-lg shadow-emerald-950/20"
-                    : "bg-zinc-950/60 border-zinc-800/80 hover:bg-zinc-800/60 text-zinc-400 hover:text-white"
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs sm:text-sm font-bold">
-                    {r.shortTitle}
-                  </span>
-                  <span
-                    className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded ${
-                      isSelected
-                        ? "bg-emerald-500 text-zinc-950"
-                        : "bg-zinc-800 text-zinc-400"
-                    }`}
-                  >
-                    {r.multiplierMax}x max
-                  </span>
-                </div>
-                <span className="text-[10px] text-zinc-500 mt-0.5">
-                  {r.datesText} • {r.gameCount} {r.gameCount === 1 ? "game" : "games"}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Round Header & Multipliers Bar */}
       <div className="bg-gradient-to-r from-zinc-900 via-zinc-900 to-zinc-950 border border-zinc-800 rounded-2xl p-4 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -160,6 +121,9 @@ export function PlayoffLineupCard({
             </h2>
             <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
               Full PPR
+            </span>
+            <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/30">
+              {currentRoundMeta?.multiplierMax}x Max Multiplier
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1 max-w-xl">
