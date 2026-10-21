@@ -1,0 +1,40 @@
+# Rules for actions/labeler
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/app/**'
+          - 'src/components/**'
+          - 'src/styles/**'
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/lib/supabase/**'
+          - 'src/app/api/**'
+          - 'scripts/**'
+
+database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'supabase/**'
+
+ci/cd:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**'
+
+config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '*.json'
+          - '*.mjs'
+          - '*.ts'
+          - '*.config.*'
+          - '.gitignore'
+          - '.env*'

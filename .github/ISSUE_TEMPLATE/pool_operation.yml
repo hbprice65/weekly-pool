@@ -1,0 +1,58 @@
+name: 🏈 Pool Operation / Admin Task
+description: Track weekly NFL slate operations, commissioner reviews, or database migrations
+title: "[Ops]: Week "
+labels: ["operations"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to track operational checklists for weekly NFL game slates, tiebreaker resolutions, and database migrations.
+  - type: dropdown
+    id: week
+    attributes:
+      label: NFL Season Week / Phase
+      options:
+        - Preseason
+        - Week 1
+        - Week 2
+        - Week 3
+        - Week 4
+        - Week 5
+        - Week 6
+        - Week 7
+        - Week 8
+        - Week 9
+        - Week 10
+        - Week 11
+        - Week 12
+        - Week 13
+        - Week 14
+        - Week 15
+        - Week 16
+        - Week 17
+        - Week 18
+        - Wild Card Weekend
+        - Divisional Round
+        - Conference Championships
+        - Super Bowl
+        - Offseason Maintenance
+    validations:
+      required: true
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Operational Checklist
+      options:
+        - label: Verify ESPN schedule data loaded and games mapped
+        - label: Verify MNF game identified for tiebreaker points
+        - label: Verify member pick submission lock before Thursday Night kickoff
+        - label: Confirm Monday Night Football final scores settled
+        - label: Audit tiebreaker calculation & extra point allocation
+        - label: Publish weekly winner and update season standings
+  - type: textarea
+    id: notes
+    attributes:
+      label: Operational Notes / Emergency Overrides
+      description: Detail any commissioner overrides, doomsday pick entries, or database migrations needed.
+    validations:
+      required: false

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserPoolMembership, DEFAULT_POOL_ID } from "@/types";
 import { MOCK_USER } from "@/lib/mock-data";
+import { getPoolAbbreviation } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import {
   getCurrentUser,
@@ -226,10 +227,15 @@ export default function AccountPage() {
             {activePoolObj && (
               <Link
                 href="/"
-                className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs hover:bg-emerald-500/15 transition"
+                className="flex items-center space-x-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs hover:bg-emerald-500/15 transition"
+                title={`Active Pool: ${activePoolObj.name}`}
               >
-                <span className="text-zinc-400">Active Pool:</span>
-                <span className="font-bold text-emerald-400 truncate max-w-[140px] sm:max-w-[220px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="text-zinc-400 hidden sm:inline">Active Pool:</span>
+                <span className="font-bold text-emerald-400 sm:hidden">
+                  {getPoolAbbreviation(activePoolObj.name)}
+                </span>
+                <span className="font-bold text-emerald-400 truncate max-w-[140px] sm:max-w-[220px] hidden sm:inline">
                   {activePoolObj.name}
                 </span>
               </Link>
@@ -341,6 +347,15 @@ export default function AccountPage() {
                   <span>Join Pool</span>
                 </button>
               )}
+
+              {/* Create a Pool Button */}
+              <Link
+                href="/create-pool"
+                className="px-3 py-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold transition flex items-center space-x-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create a Pool</span>
+              </Link>
             </div>
           </div>
 
@@ -412,14 +427,23 @@ export default function AccountPage() {
                       <p className="text-xs text-zinc-400 max-w-sm mx-auto mb-4">
                         Join a pool using an invite code from your commissioner, or enter a join code above.
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => setIsJoinOpen(true)}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold transition cursor-pointer inline-flex items-center space-x-1"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Join a Pool</span>
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsJoinOpen(true)}
+                          className="px-3.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-semibold transition cursor-pointer inline-flex items-center space-x-1"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Join a Pool</span>
+                        </button>
+                        <Link
+                          href="/create-pool"
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold transition cursor-pointer inline-flex items-center space-x-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Create a Pool</span>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -460,6 +484,11 @@ export default function AccountPage() {
                                 >
                                   {pool.name}
                                 </span>
+                                {pool.format === "playoff_challenge" && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                    Playoffs (1x–4x)
+                                  </span>
+                                )}
                                 {isActive && (
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                                     Active

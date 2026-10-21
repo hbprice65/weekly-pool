@@ -1,0 +1,45 @@
+name: 💡 Feature Request
+description: Propose an idea, new pool format, scoring mechanism, or UX improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make **NFL Weekly Pool** better? Propose it here!
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a problem or unmet user need?
+      placeholder: e.g. Pool members frequently ask for Survivor mode or push notifications before Thursday Night Football.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see implemented.
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      options:
+        - New Pool Format (Survivor, Against the Spread, Confidence)
+        - Multi-Sport Extension (NCAAF, NBA, March Madness)
+        - UI / UX & Mobile Responsiveness
+        - Commissioner / Admin Capabilities
+        - Tiebreaker & Scoring Algorithms
+        - ESPN API & Schedule Sync
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or features you've considered?
+    validations:
+      required: false

@@ -225,7 +225,7 @@ export const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   },
   {
     userId: "user-demo-01",
-    displayName: "GridironGuru (You)",
+    displayName: "GridironGuru",
     isLeader: true,
     role: "leader",
     isHidden: false,
@@ -701,6 +701,26 @@ export const MOCK_POOLS: Pool[] = [
     leaderId: "club-u1",
     createdAt: "2026-08-25T19:00:00Z",
   },
+  {
+    id: "00000000-0000-0000-0000-000000000005",
+    name: "2026 NFL Playoff Challenge",
+    slug: "nfl-playoff-challenge-2026",
+    description: "Official NFL Playoff Fantasy Challenge with 1x-4x consecutive week multipliers and Full PPR scoring.",
+    sport: "football",
+    league: "nfl",
+    format: "playoff_challenge",
+    seasonYear: 2026,
+    isPublic: true,
+    joinCode: "PLAYOFFS",
+    creatorId: "user-demo-01",
+    leaderId: "user-demo-01",
+    createdAt: "2026-09-01T12:00:00Z",
+    settings: {
+      presetId: "playoff_challenge",
+      scoring: "full_ppr",
+      allow_bye_week_picks: true,
+    },
+  },
 ];
 
 export const MOCK_USER_POOLS: UserPoolMembership[] = [
@@ -724,6 +744,16 @@ export const MOCK_USER_POOLS: UserPoolMembership[] = [
     userPoints: 56,
     weeklyPoints: 11,
   },
+  {
+    pool: MOCK_POOLS[4],
+    role: "leader",
+    isLeader: true,
+    joinedAt: "2026-09-01T12:00:00Z",
+    memberCount: 5,
+    userRank: 1,
+    userPoints: 142.5,
+    weeklyPoints: 48.2,
+  },
 ];
 
 export const MOCK_POOL_OVERRIDES: Record<
@@ -742,7 +772,7 @@ export const MOCK_POOL_OVERRIDES: Record<
 > = {
   // Pool 2: Gridiron Office League (8 distinct office coworkers)
   "00000000-0000-0000-0000-000000000002": [
-    { userId: "user-demo-01", displayName: "GridironGuru (You)", totalPoints: 56, weeklyPoints: 11, wins: 54, losses: 24, weeksWon: 2, predictedMnfScore: 46, winRateBias: 0.74 },
+    { userId: "user-demo-01", displayName: "GridironGuru", totalPoints: 56, weeklyPoints: 11, wins: 54, losses: 24, weeksWon: 2, predictedMnfScore: 46, winRateBias: 0.74 },
     { userId: "office-u1", displayName: "SarahFromAccounting", totalPoints: 53, weeklyPoints: 10, wins: 52, losses: 26, weeksWon: 1, predictedMnfScore: 49, winRateBias: 0.69 },
     { userId: "office-u2", displayName: "DevOpsDan", totalPoints: 51, weeklyPoints: 11, wins: 50, losses: 28, weeksWon: 1, predictedMnfScore: 43, winRateBias: 0.66 },
     { userId: "office-u3", displayName: "MarketingMike", totalPoints: 49, weeklyPoints: 9, wins: 48, losses: 30, weeksWon: 1, predictedMnfScore: 51, winRateBias: 0.62 },

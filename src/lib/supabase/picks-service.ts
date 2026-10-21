@@ -334,12 +334,14 @@ export async function fetchUserPicksFromSupabase(
 
   try {
     // 1. Fetch picks for this user for the target week and pool
-    let { data: initialPicks, error: picksError } = await supabase
+    const { data: fetchedPicks, error: picksError } = await supabase
       .from("picks")
       .select("game_id, selected_team, week_number, pool_id")
       .eq("user_id", userId)
       .eq("week_number", targetWeek)
       .eq("pool_id", poolId);
+
+    let initialPicks = fetchedPicks;
 
     // Fallback if pool_id column doesn't exist yet or legacy rows without pool_id on default pool
     if (
@@ -2742,21 +2744,38 @@ export async function saveDoomsdayOverridePicks(
 // ==============================================================================
 
 export interface PoolDesignPreset {
-  id: "classic_straight_up" | "spread_showdown" | "survivor_knockout";
+  id: "classic_straight_up" | "spread_showdown" | "survivor_knockout" | "playoff_challenge";
   title: string;
   badge: string;
   format: Pool["format"];
   summary: string;
   rulesPreview: string[];
   isPlaceholder?: boolean;
+  category?: "regular_season" | "postseason";
 }
 
 export const POOL_DESIGN_PRESETS: PoolDesignPreset[] = [
+  {
+    id: "playoff_challenge",
+    title: "NFL Playoff Challenge",
+    badge: "Fantasy Multipliers",
+    format: "playoff_challenge",
+    category: "postseason",
+    summary: "Pick 1 QB, 2 RB, 2 WR, 1 TE, 1 K, and 1 DEF. Earn 1x, 2x, 3x, or 4x multiplier points each consecutive week they stay in your lineup.",
+    rulesPreview: [
+      "Full PPR scoring (1.0 pt/reception)",
+      "1x to 4x multiplier for consecutive weeks active",
+      "Pick #1 seed bye-week stars in Wild Card for future 2x-4x boost",
+      "Points multiplied in Divisional, Conf, and Super Bowl",
+    ],
+    isPlaceholder: false,
+  },
   {
     id: "classic_straight_up",
     title: "Classic Straight-Up",
     badge: "Active Format",
     format: "straight_up",
+    category: "regular_season",
     summary: "Pick outright winners for every weekly NFL matchup. 1 point per win with MNF score tiebreaker.",
     rulesPreview: ["1 pt per correct winner", "Locks at each game's kickoff", "MNF total points tiebreaker"],
     isPlaceholder: false,
@@ -2766,6 +2785,7 @@ export const POOL_DESIGN_PRESETS: PoolDesignPreset[] = [
     title: "Spread Showdown (ATS)",
     badge: "Preset Placeholder",
     format: "against_spread",
+    category: "regular_season",
     summary: "Pick teams to cover the weekly Las Vegas point spread. Ideal for competitive leagues.",
     rulesPreview: ["Pick against the spread", "1 pt per ATS cover", "Custom spread locks (Coming soon)"],
     isPlaceholder: true,
@@ -2775,11 +2795,14 @@ export const POOL_DESIGN_PRESETS: PoolDesignPreset[] = [
     title: "Survivor Knockout",
     badge: "Preset Placeholder",
     format: "survivor",
+    category: "regular_season",
     summary: "Pick one team to win each week. You cannot reuse a team all season—lose once and you're out.",
     rulesPreview: ["1 pick per week", "No repeating NFL teams", "Last player standing wins (Coming soon)"],
     isPlaceholder: true,
   },
 ];
+
+export const PLAYOFF_POOL_ID = "00000000-0000-0000-0000-000000000005";
 
 export const DEFAULT_FEATURED_POOLS: (Pool & { memberCount?: number })[] = [
   {
@@ -2797,6 +2820,24 @@ export const DEFAULT_FEATURED_POOLS: (Pool & { memberCount?: number })[] = [
     settings: {
       presetId: "classic_straight_up",
       tiebreaker: "mnf_total_points",
+    },
+  },
+  {
+    id: PLAYOFF_POOL_ID,
+    name: "2026 NFL Playoff Challenge",
+    slug: "nfl-playoff-challenge-2026",
+    description: "Pick 8 playoff stars each week. Earn 1x-4x multiplier points for every consecutive week active.",
+    sport: "football",
+    league: "nfl",
+    format: "playoff_challenge",
+    seasonYear: 2026,
+    isPublic: true,
+    joinCode: "PLAYOFFS",
+    memberCount: 5,
+    settings: {
+      presetId: "playoff_challenge",
+      scoring: "full_ppr",
+      allow_bye_week_picks: true,
     },
   },
 ];
@@ -3164,8 +3205,10 @@ export async function createPoolQuickSetup(params: {
     settings: {
       presetId: preset.id,
       presetTitle: preset.title,
-      tiebreaker: "mnf_total_points",
+      tiebreaker: preset.format === "playoff_challenge" ? "super_bowl_score" : "mnf_total_points",
       lock_rule: "kickoff",
+      scoring: preset.format === "playoff_challenge" ? "full_ppr" : undefined,
+      allow_bye_week_picks: preset.format === "playoff_challenge" ? true : undefined,
     },
     createdAt: new Date().toISOString(),
   };

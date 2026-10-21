@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Game, PoolMember, DoomsdayPickPayload, DEFAULT_POOL_ID } from "@/types";
+import { getPoolAbbreviation } from "@/lib/utils";
 import {
   fetchPoolMembers,
   toggleMemberVisibility,
@@ -275,11 +276,15 @@ export default function AdminPage() {
 
           <Link
             href="/account"
-            className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs hover:bg-emerald-500/15 transition shrink-0"
-            title="Switch Pool on Account Page"
+            className="flex items-center space-x-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs hover:bg-emerald-500/15 transition shrink-0"
+            title={`Active Pool: ${activePoolName}`}
           >
-            <span className="text-zinc-400">Active Pool:</span>
-            <span className="font-bold text-emerald-400 truncate max-w-[140px] sm:max-w-[220px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className="text-zinc-400 hidden sm:inline">Active Pool:</span>
+            <span className="font-bold text-emerald-400 sm:hidden">
+              {getPoolAbbreviation(activePoolName)}
+            </span>
+            <span className="font-bold text-emerald-400 truncate max-w-[140px] sm:max-w-[220px] hidden sm:inline">
               {activePoolName}
             </span>
           </Link>

@@ -9,6 +9,20 @@ import { RulesCard } from "@/components/RulesCard";
 import { InviteMemberCard } from "@/components/InviteMemberCard";
 import { AuthModal } from "@/components/AuthModal";
 import { LandingPage } from "@/components/LandingPage";
+import { PlayoffLineupCard } from "@/components/PlayoffLineupCard";
+import { PlayoffLeaderboardTable } from "@/components/PlayoffLeaderboardTable";
+import { PlayoffRulesCard } from "@/components/PlayoffRulesCard";
+import {
+  fetchUserPlayoffLineup,
+  saveUserPlayoffLineup,
+  fetchPlayoffLeaderboard,
+  getEmptyPlayoffLineup,
+} from "@/lib/playoff-challenge-service";
+import {
+  PlayoffRound,
+  PlayoffUserLineupMap,
+  PlayoffLeaderboardEntry,
+} from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { MOCK_WEEK, MOCK_LEADERBOARD, MOCK_USER, MOCK_POOLS, MOCK_POOL_OVERRIDES } from "@/lib/mock-data";
 import {
@@ -63,7 +77,22 @@ export default function Home() {
     }
     return MOCK_POOLS[0];
   });
-  const [showLanding, setShowLanding] = useState<boolean>(false);
+  const [showLanding, setShowLanding] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      const params = new URLSearchParams(window.location.search);
+      // If user directly navigates to a tab or a specific pool dashboard, show that tab
+      if (["picks", "scoreboard", "leaderboard", "standings", "rules", "invite"].includes(hash)) {
+        return false;
+      }
+      if (params.get("pool") && hash) {
+        return false;
+      }
+      // Otherwise default to the landing / welcome page
+      return true;
+    }
+    return true;
+  });
 
   const [userPicks, setUserPicks] = useState<Record<string, string>>({});
   const [mnfPrediction, setMnfPrediction] = useState<string>("45");
@@ -89,12 +118,62 @@ export default function Home() {
   const [weekGames, setWeekGames] = useState<Game[]>(MOCK_WEEK.games);
 
   // Pool Leader privilege flag
-  const [isPoolLeader, setIsPoolLeader] = useState<boolean>(true);
+  const [isPoolLeader, setIsPoolLeader] = useState<boolean>(false);
   const [inviteBanner, setInviteBanner] = useState<{
     poolSlug: string;
     inviter?: string;
     recipient?: string;
   } | null>(null);
+
+  // Playoff Challenge state
+  const isPlayoffChallenge = activePool?.format === "playoff_challenge";
+  const [playoffRound, setPlayoffRound] = useState<PlayoffRound>(1);
+  const [playoffLineup, setPlayoffLineup] = useState<PlayoffUserLineupMap>(getEmptyPlayoffLineup());
+  const [previousPlayoffLineup, setPreviousPlayoffLineup] = useState<PlayoffUserLineupMap | undefined>(undefined);
+  const [playoffLeaderboardEntries, setPlayoffLeaderboardEntries] = useState<PlayoffLeaderboardEntry[]>([]);
+  const [isSavingPlayoffLineup, setIsSavingPlayoffLineup] = useState<boolean>(false);
+  const [playoffSaveSuccess, setPlayoffSaveSuccess] = useState<boolean>(false);
+
+  // Load Playoff Challenge roster & leaderboard whenever round or pool changes
+  useEffect(() => {
+    if (!isPlayoffChallenge) return;
+    let cancelled = false;
+    const uid = currentUser?.id || "demo_user";
+
+    fetchUserPlayoffLineup(activePool.id, uid, playoffRound).then((lu) => {
+      if (!cancelled) setPlayoffLineup(lu);
+    });
+
+    if (playoffRound > 1) {
+      fetchUserPlayoffLineup(activePool.id, uid, (playoffRound - 1) as PlayoffRound).then((prevLu) => {
+        if (!cancelled) setPreviousPlayoffLineup(prevLu);
+      });
+    } else {
+      setPreviousPlayoffLineup(undefined);
+    }
+
+    fetchPlayoffLeaderboard(activePool.id, uid, playoffRound).then((entries) => {
+      if (!cancelled) setPlayoffLeaderboardEntries(entries);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPlayoffChallenge, activePool.id, currentUser?.id, playoffRound]);
+
+  const handleSavePlayoffLineup = async () => {
+    setIsSavingPlayoffLineup(true);
+    setPlayoffSaveSuccess(false);
+    const uid = currentUser?.id || "demo_user";
+    const res = await saveUserPlayoffLineup(activePool.id, uid, playoffRound, playoffLineup);
+    setIsSavingPlayoffLineup(false);
+    if (res.success) {
+      setPlayoffSaveSuccess(true);
+      setTimeout(() => setPlayoffSaveSuccess(false), 3000);
+      const updated = await fetchPlayoffLeaderboard(activePool.id, uid, playoffRound);
+      setPlayoffLeaderboardEntries(updated);
+    }
+  };
 
   // 1. Listen to Supabase Auth state changes (Google OAuth callbacks, logout, session refresh)
   useEffect(() => {
@@ -179,10 +258,13 @@ export default function Home() {
         if (matched) {
           setActivePool(matched);
         }
-        if (hash === "home" || params.get("view") === "landing") {
-          setShowLanding(true);
-        } else {
+        if (["picks", "scoreboard", "leaderboard", "standings", "rules", "invite"].includes(hash)) {
           setShowLanding(false);
+        } else if (poolParam && hash) {
+          setShowLanding(false);
+        } else {
+          // Default to landing page when visiting root / or #home
+          setShowLanding(true);
         }
       });
 
@@ -239,7 +321,7 @@ export default function Home() {
     const handleHashChange = () => {
       if (typeof window !== "undefined") {
         const hash = window.location.hash.replace("#", "");
-        if (hash === "home") {
+        if (hash === "home" || !hash) {
           setShowLanding(true);
         } else if (["picks", "scoreboard", "leaderboard", "standings", "rules", "invite"].includes(hash)) {
           setActiveTab(hash === "standings" ? "leaderboard" : (hash as NavTab));
@@ -607,15 +689,25 @@ export default function Home() {
   const progressPercent =
     totalGames > 0 ? Math.round((pickedCount / totalGames) * 100) : 0;
 
-  const myEntry = standingsEntries.find(
-    (e) => e.userId === (currentUser?.id || "user-demo-01")
-  );
-  const myRank = myEntry ? myEntry.rank : (currentUser ? 1 : MOCK_USER.seasonRank);
-  const myPoints = myEntry ? myEntry.totalPoints : (currentUser ? 0 : MOCK_USER.totalPoints);
+  const myEntry = currentUser
+    ? standingsEntries.find((e) => e.userId === currentUser.id)
+    : undefined;
+  const myRank = myEntry ? myEntry.rank : 0;
+  const myPoints = myEntry ? myEntry.totalPoints : 0;
+
+  const myPlayoffEntry = currentUser
+    ? playoffLeaderboardEntries.find((e) => e.userId === currentUser.id)
+    : undefined;
+  const displayUserPoints = isPlayoffChallenge
+    ? (myPlayoffEntry?.totalPoints ?? 0)
+    : myPoints;
+  const displayUserRank = isPlayoffChallenge
+    ? (myPlayoffEntry?.rank ?? 0)
+    : myRank;
 
   const displayName =
     currentUser?.name ||
-    (currentUser?.email ? currentUser.email.split("@")[0] : MOCK_USER.displayName);
+    (currentUser?.email ? currentUser.email.split("@")[0] : "Guest");
 
   // Identify Monday Night Football tiebreaker game dynamically
   const mnfGame =
@@ -656,8 +748,8 @@ export default function Home() {
         isRefreshing={isRefreshing}
         userName={displayName}
         userAvatar={currentUser?.avatarUrl}
-        userPoints={myPoints}
-        userRank={myRank}
+        userPoints={displayUserPoints}
+        userRank={displayUserRank}
         isAuthenticated={!!currentUser}
         onOpenAuth={() => setIsAuthOpen(true)}
         isLeader={isPoolLeader}
@@ -736,7 +828,19 @@ export default function Home() {
 
         {/* Tab 1: Picks View */}
         {activeTab === "picks" && (
-          <div className="space-y-4 sm:space-y-6">
+          isPlayoffChallenge ? (
+            <PlayoffLineupCard
+              currentRound={playoffRound}
+              onSelectRound={(r) => setPlayoffRound(r)}
+              lineup={playoffLineup}
+              previousRoundLineup={previousPlayoffLineup}
+              onUpdateLineup={(updated) => setPlayoffLineup(updated)}
+              onSave={handleSavePlayoffLineup}
+              isSaving={isSavingPlayoffLineup}
+              saveMessage={playoffSaveSuccess ? "Lineup saved!" : null}
+            />
+          ) : (
+            <div className="space-y-4 sm:space-y-6">
             {/* Top Action Bar */}
             <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl sm:rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
               <div className="flex items-center space-x-2">
@@ -899,69 +1003,88 @@ export default function Home() {
               </div>
             </div>
           </div>
+          )
         )}
 
         {/* Tab 2: Dedicated Weekly Scoreboard */}
         {activeTab === "scoreboard" && (
-          <WeeklyScoreboard
-            games={weekGames}
-            entries={scoreboardEntries}
-            currentUserId={currentUser?.id}
-            currentUserPicks={userPicks}
-          />
+          isPlayoffChallenge ? (
+            <PlayoffLeaderboardTable
+              entries={playoffLeaderboardEntries}
+              currentRound={playoffRound}
+              currentUserId={currentUser?.id}
+            />
+          ) : (
+            <WeeklyScoreboard
+              games={weekGames}
+              entries={scoreboardEntries}
+              currentUserId={currentUser?.id}
+              currentUserPicks={userPicks}
+            />
+          )
         )}
 
         {/* Tab 3: Dedicated Season Leaderboard */}
         {activeTab === "leaderboard" && (
-          <div className="space-y-4 sm:space-y-6">
-            {/* Quick Invite CTA Banner */}
-            <div className="bg-gradient-to-r from-emerald-950/50 via-zinc-900 to-zinc-900 border border-emerald-500/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-              <div className="flex items-center space-x-3.5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                  <UserPlus className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-white">
-                    Know someone who thinks they know football?
-                  </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Invite friends or colleagues to join the pool and battle for the top spot.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleTabChange("invite")}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold rounded-xl transition shadow-md shadow-emerald-500/10 active:scale-95 shrink-0 self-start sm:self-center cursor-pointer flex items-center space-x-1.5"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>Invite New Member</span>
-              </button>
-            </div>
-
-            <LeaderboardTable
-              entries={standingsEntries}
+          isPlayoffChallenge ? (
+            <PlayoffLeaderboardTable
+              entries={playoffLeaderboardEntries}
+              currentRound={playoffRound}
               currentUserId={currentUser?.id}
-              onNavigateToScoreboard={() => handleTabChange("scoreboard")}
             />
-          </div>
+          ) : (
+            <div className="space-y-4 sm:space-y-6">
+              {/* Quick Invite CTA Banner */}
+              <div className="bg-gradient-to-r from-emerald-950/50 via-zinc-900 to-zinc-900 border border-emerald-500/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-center space-x-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                    <UserPlus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-white">
+                      Know someone who thinks they know football?
+                    </h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Invite friends or colleagues to join the pool and battle for the top spot.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleTabChange("invite")}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold rounded-xl transition shadow-md shadow-emerald-500/10 active:scale-95 shrink-0 self-start sm:self-center cursor-pointer flex items-center space-x-1.5"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Invite New Member</span>
+                </button>
+              </div>
+
+              <LeaderboardTable
+                entries={standingsEntries}
+                currentUserId={currentUser?.id}
+                onNavigateToScoreboard={() => handleTabChange("scoreboard")}
+              />
+            </div>
+          )
         )}
 
         {/* Tab 4: Rules View */}
-        {activeTab === "rules" && <RulesCard />}
+        {activeTab === "rules" && (
+          isPlayoffChallenge ? <PlayoffRulesCard /> : <RulesCard />
+        )}
 
         {/* Tab 5: Dedicated Invite View */}
         {activeTab === "invite" && (
           <InviteMemberCard
             poolName={activePool?.name || "2026 NFL Weekly Pick'em"}
             poolSlug={activePool?.joinCode || activePool?.slug || "nfl-2026-weekly"}
-            inviterName={currentUser?.name || "GridironGuru"}
+            inviterName={currentUser?.name || "A Pool Member"}
           />
         )}
       </main>
 
       {/* MOBILE FLOATING ACTION BAR: Stays pinned within thumb reach on phones (< sm) */}
-      {activeTab === "picks" && (
+      {activeTab === "picks" && !isPlayoffChallenge && (
         <div className="sm:hidden fixed bottom-3 left-3 right-3 z-30 bg-zinc-900/95 border border-zinc-700/80 backdrop-blur-lg p-3 rounded-2xl shadow-2xl shadow-black/80 flex items-center justify-between gap-3">
           {isFutureWeek ? (
             <div className="w-full flex items-center justify-between py-1 px-1">

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "verify-picks": "node scripts/verify-picks.js",
     "create-user": "node scripts/create-user.js"
   },

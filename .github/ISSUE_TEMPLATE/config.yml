@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 Weekly Pool Architecture & Schema
+    url: https://github.com/hbprice65/weekly-pool#readme
+    about: Review README, database setup, and Supabase migrations.

@@ -16,10 +16,18 @@ export type SportType = "football" | "basketball" | "baseball" | "soccer" | "hoc
 export type LeagueType = "nfl" | "ncaaf" | "nba" | "mlb" | "epl";
 
 /** Supported game formats / contest rules */
-export type PoolFormat = "straight_up" | "against_spread" | "survivor" | "confidence";
+export type PoolFormat =
+  | "straight_up"
+  | "against_spread"
+  | "survivor"
+  | "confidence"
+  | "playoff_challenge";
 
 /** Default featured public pool ID (seeded in schema_v2.sql) */
 export const DEFAULT_POOL_ID = "00000000-0000-0000-0000-000000000001";
+
+/** Default featured playoff challenge pool ID */
+export const PLAYOFF_POOL_ID = "00000000-0000-0000-0000-000000000005";
 
 /** Default featured public pool URL slug */
 export const DEFAULT_POOL_SLUG = "nfl-2026-weekly";
@@ -359,4 +367,130 @@ export interface LeaderboardEntry {
   isLeader?: boolean;
   /** Whether this member has been hidden from public leaderboards by the pool leader */
   isHidden?: boolean;
+}
+
+// ==============================================================================
+// 6. NFL PLAYOFFS FANTASY CHALLENGE TYPES
+// ==============================================================================
+
+/** The 4 playoff postseason rounds */
+export type PlayoffRound = 1 | 2 | 3 | 4;
+
+export const PLAYOFF_ROUNDS: {
+  round: PlayoffRound;
+  title: string;
+  shortTitle: string;
+  multiplierMax: number;
+  datesText: string;
+  gameCount: number;
+}[] = [
+  {
+    round: 1,
+    title: "Wild Card Weekend",
+    shortTitle: "Wild Card",
+    multiplierMax: 1,
+    datesText: "Jan 10–12",
+    gameCount: 6,
+  },
+  {
+    round: 2,
+    title: "Divisional Round",
+    shortTitle: "Divisional",
+    multiplierMax: 2,
+    datesText: "Jan 17–18",
+    gameCount: 4,
+  },
+  {
+    round: 3,
+    title: "Conference Championships",
+    shortTitle: "Conf Finals",
+    multiplierMax: 3,
+    datesText: "Jan 25",
+    gameCount: 2,
+  },
+  {
+    round: 4,
+    title: "Super Bowl",
+    shortTitle: "Super Bowl",
+    multiplierMax: 4,
+    datesText: "Feb 8",
+    gameCount: 1,
+  },
+];
+
+/** The 8 designated roster positions */
+export type PlayoffRosterSlot =
+  | "QB"
+  | "RB1"
+  | "RB2"
+  | "WR1"
+  | "WR2"
+  | "TE"
+  | "K"
+  | "DEF";
+
+export const PLAYOFF_ROSTER_SLOTS: {
+  slot: PlayoffRosterSlot;
+  label: string;
+  position: PlayoffPosition;
+}[] = [
+  { slot: "QB", label: "Quarterback", position: "QB" },
+  { slot: "RB1", label: "Running Back 1", position: "RB" },
+  { slot: "RB2", label: "Running Back 2", position: "RB" },
+  { slot: "WR1", label: "Wide Receiver 1", position: "WR" },
+  { slot: "WR2", label: "Wide Receiver 2", position: "WR" },
+  { slot: "TE", label: "Tight End", position: "TE" },
+  { slot: "K", label: "Kicker", position: "K" },
+  { slot: "DEF", label: "Defense / ST", position: "DEF" },
+];
+
+/** Position types in the playoff tournament */
+export type PlayoffPosition = "QB" | "RB" | "WR" | "TE" | "K" | "DEF";
+
+/** A player available for selection during the NFL playoffs */
+export interface PlayoffPlayer {
+  id: string;
+  name: string;
+  position: PlayoffPosition;
+  teamId: string;
+  teamName: string;
+  conference: "AFC" | "NFC";
+  seed: number;
+  isByeRound1?: boolean;
+  isEliminated?: boolean;
+  eliminatedInRound?: PlayoffRound;
+  headshotUrl?: string;
+  opponent?: string;
+  gameDate?: string;
+  projectedPoints?: number;
+}
+
+/** A single slot pick in a user's playoff lineup */
+export interface PlayoffLineupPick {
+  slot: PlayoffRosterSlot;
+  playerId: string;
+  playerName: string;
+  teamId: string;
+  position: PlayoffPosition;
+  multiplier: 1 | 2 | 3 | 4;
+  basePoints: number;
+  totalPoints: number;
+  statsSummary?: string;
+  isBye?: boolean;
+  isEliminated?: boolean;
+}
+
+/** Complete map of 8 slots for a user's lineup in a given round */
+export type PlayoffUserLineupMap = Record<PlayoffRosterSlot, PlayoffLineupPick | null>;
+
+/** Leaderboard participant row in the Playoff Challenge */
+export interface PlayoffLeaderboardEntry {
+  userId: string;
+  displayName: string;
+  avatarUrl?: string;
+  rank: number;
+  totalPoints: number;
+  roundPoints: Record<PlayoffRound, number>;
+  lineup?: PlayoffUserLineupMap;
+  isLeader?: boolean;
 }

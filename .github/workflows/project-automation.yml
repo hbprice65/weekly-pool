@@ -1,0 +1,37 @@
+name: GitHub Projects Automation
+
+on:
+  issues:
+    types: [opened, reopened]
+  pull_request:
+    types: [opened, reopened]
+
+# Avoid concurrent additions for the same event
+concurrency:
+  group: project-automation-${{ github.event_path }}
+  cancel-in-progress: false
+
+jobs:
+  add-to-project:
+    name: Route Item to GitHub Project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Project Configuration
+        id: check_config
+        run: |
+          TOKEN="${{ secrets.PROJECTS_TOKEN }}"
+          URL="${{ vars.PROJECT_URL || secrets.PROJECT_URL }}"
+          if [ -z "$TOKEN" ] || [ -z "$URL" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning ::GitHub Projects automation is not fully activated yet."
+            echo "::notice ::To automatically route Issues and PRs to your GitHub Project, set the repository variable PROJECT_URL (e.g. https://github.com/users/hbprice65/projects/1) and secret PROJECTS_TOKEN (a Personal Access Token with 'project' scope). See docs/github-projects-integration.md for details."
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Add to GitHub Project
+        if: steps.check_config.outputs.configured == 'true'
+        uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: ${{ vars.PROJECT_URL || secrets.PROJECT_URL }}
+          github-token: ${{ secrets.PROJECTS_TOKEN }}

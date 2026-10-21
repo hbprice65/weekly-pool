@@ -13,6 +13,7 @@ A web app for running an NFL weekly pick'em pool. Make straight-up picks each we
   - **Show / Hide Members**: Toggle visibility of participants from public leaderboards and scoreboards without deleting historical pick records.
   - **Doomsday Pick Editor**: Commissioner emergency override to enter or modify picks and Monday Night Football tiebreaker scores on behalf of any member (e.g. system crashes, lost device, picks texted before kickoff).
   - **Multi-Pool & Multi-Sport Architecture**: Built to easily extend to Survivor, Against the Spread, and Confidence pools across NFL, NCAAF, NBA, and other leagues.
+- **NFL Playoffs Fantasy Challenge**: Host your own version of the classic NFL.com Playoff Challenge! Pick an 8-player roster (1 QB, 2 RB, 2 WR, 1 TE, 1 K, 1 DEF) and earn 1x, 2x, 3x, or 4x multiplier points for every consecutive week a player stays active in your lineup from Wild Card Weekend through the Super Bowl, featuring Full PPR scoring and the classic Wild Card first-round bye week strategy.
 - **Authentication**: Sign in with Google OAuth or email via Supabase.
 
 ## Tech Stack
@@ -46,6 +47,7 @@ NEXT_PUBLIC_SEASON_YEAR=2026
 Run the SQL migrations in your Supabase SQL Editor:
 1. [`supabase/schema_v2.sql`](file:///c:/Users/hbpri/weekly-pool/supabase/schema_v2.sql): sets up `profiles`, `pools`, `games`, `picks`, and `tiebreakers` tables along with Row-Level Security policies.
 2. [`supabase/pool_leader_and_admin_tools.sql`](file:///c:/Users/hbpri/weekly-pool/supabase/pool_leader_and_admin_tools.sql): configures pool leader permissions, member visibility controls, and emergency doomsday pick override policies.
+3. [`supabase/playoff_challenge_schema.sql`](file:///c:/Users/hbpri/weekly-pool/supabase/playoff_challenge_schema.sql): provisions `playoff_lineups` and `playoff_player_stats` tables with RLS policies to support the NFL Playoffs Fantasy Challenge (1x–4x consecutive week multiplier tournaments).
 
 ### 4. Run the App
 
